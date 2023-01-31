@@ -95,15 +95,15 @@ BIDS-compliant datastructure:
 
 1. To generate the BIDS-compliant database strucure, please run:
 
-`
+```
 python3 bids/bidsify_dataset.py --input_directory /path/to/non-bids-compliant-db --output_directory /path/where/you/want/to/store/bids/db
-`
+```
 
 2. To run the samseg longitudinal pipeline, please install freesurfer and run the fllowing command:
 
-`
-python3 run_samseg/run_samseg_segmentation.py --input_directory /path/to/bids --number_of_workers --freesurfer_path /path/to/fs/installation
-`
+```
+python3 run_samseg/run_samseg_segmentation.py --input_directory /path/to/bids --number_of_workers 32 --freesurfer_path /path/to/fs/installation
+```
 
 ### Analysis / Evaluation
 
