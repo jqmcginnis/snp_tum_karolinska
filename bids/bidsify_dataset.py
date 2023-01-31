@@ -29,7 +29,7 @@ try:
     os.mkdir(bids_database_path, mode)
 
 except OSError as exc:
-    pass
+    raise ValueError('Error making new BIDS directory. Abort.')
 
 # @TODO: create extensive dataset description
 #  https://bids-specification.readthedocs.io/en/stable/03-modality-agnostic-files.html
@@ -83,49 +83,49 @@ sub_array = []
 ses_array = []
 
 for id in dirs:
-  patient_id = id
-  patient_path = os.path.join(args.input_directory, id)
-  print('Patient ID:', patient_id)
-  bids_subdir = str("sub-"+patient_id).replace("m_","m")
-  sub_array.append(bids_subdir)
-  bids_subdir_path = os.path.join(bids_database_path,bids_subdir)
-  try:
-      os.mkdir(bids_subdir_path)
-  except:
-      raise ValueError('Error making new directories. Abort.')
+    patient_id = id
+    patient_path = os.path.join(args.input_directory, id)
+    print('Patient ID:', patient_id)
+    bids_subdir = str("sub-"+patient_id).replace("m_","m")
+    bids_subdir_path = os.path.join(bids_database_path,bids_subdir)
+    try:
+        os.mkdir(bids_subdir_path)
+    except:
+        raise ValueError('Error making new directories. Abort.')
 
-  session_dirs = [name for name in os.listdir(patient_path) if os.path.isdir(os.path.join(patient_path, name))]
+    session_dirs = [name for name in os.listdir(patient_path) if os.path.isdir(os.path.join(patient_path, name))]
 
-  for session in session_dirs:
-      session_id = 'ses-'+session.replace("-", "")
-      ses_array.append(session_id)
-      # assert proper date format
-      session_path = os.path.join(patient_path, session)
-      bids_session_path = os.path.join(bids_subdir_path, session_id)
-      bids_session_path_anat = os.path.join(bids_session_path,'anat')
-      print(bids_session_path)
-      print(session_path)
-      try:
-          os.mkdir(bids_session_path)
-          os.mkdir(bids_session_path_anat)
-
-      except:
-          raise ValueError('Error making new directories. Abort.')
-          
-      t1w_raw = os.path.join(session_path, "t1.nii")
-      t1w_bids = os.path.join(bids_session_path_anat, f"sub-{patient_id}_{session_id}_{T1w_bidslabel}.nii.gz")
-      f2w_raw = os.path.join(session_path, "f2.nii")
-      f2w_bids = os.path.join(bids_session_path_anat, f"sub-{patient_id}_{session_id}_{FLAIR_bidslabel}.nii.gz")
-
-      raw_dirs = [t1w_raw, f2w_raw]
-      bids_dirs = [t1w_bids,f2w_bids]
-
-      for raw,bids in zip(raw_dirs,bids_dirs):
+    for session in session_dirs:
+        session_id = 'ses-'+session.replace("-", "")
+        sub_array.append(bids_subdir)
+        ses_array.append(session_id)
+        # assert proper date format
+        session_path = os.path.join(patient_path, session)
+        bids_session_path = os.path.join(bids_subdir_path, session_id)
+        bids_session_path_anat = os.path.join(bids_session_path,'anat')
+        print(bids_session_path)
+        print(session_path)
         try:
-            with open(raw, 'rb') as src, gzip.open(bids, 'wb') as dst:
-                  dst.writelines(src)
+            os.mkdir(bids_session_path)
+            os.mkdir(bids_session_path_anat)
+
         except:
-            raise ValueError('Error zippping nifti file. Abort.')
+            raise ValueError('Error making new directories. Abort.')
+            
+        t1w_raw = os.path.join(session_path, "t1.nii")
+        t1w_bids = os.path.join(bids_session_path_anat, f"sub-{patient_id}_{session_id}_{T1w_bidslabel}.nii.gz")
+        f2w_raw = os.path.join(session_path, "f2.nii")
+        f2w_bids = os.path.join(bids_session_path_anat, f"sub-{patient_id}_{session_id}_{FLAIR_bidslabel}.nii.gz")
+
+        raw_dirs = [t1w_raw, f2w_raw]
+        bids_dirs = [t1w_bids,f2w_bids]
+
+        for raw,bids in zip(raw_dirs,bids_dirs):
+            try:
+                with open(raw, 'rb') as src, gzip.open(bids, 'wb') as dst:
+                    dst.writelines(src)
+            except:
+                raise ValueError('Error zippping nifti file. Abort.')
 
 
 # Serializing json
