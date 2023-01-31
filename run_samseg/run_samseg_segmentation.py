@@ -1,6 +1,5 @@
 import argparse
 import os
-from tqdm import tqdm
 from pathlib import Path
 import multiprocessing
 import re
@@ -9,22 +8,6 @@ def split_list(alist, splits=1):
     length = len(alist)
     return [alist[i * length // splits: (i + 1) * length // splits]
             for i in range(splits)]
-
-parser = argparse.ArgumentParser(description='Segment T1w / FLAIR of brains in given database.')
-parser.add_argument('-i', '--input_directory', help='Folder of derivatives in BIDS database.', required=True)
-parser.add_argument('-n', '--number_of_workers', help='Number of parallel processing cores.', type=int, default=os.cpu_count())
-
-# read the arguments
-args = parser.parse_args()
-
-# generate derivatives/labels/
-derivatives_dir = os.path.join(args.input_directory, "derivatives")
-Path(derivatives_dir).mkdir(parents=True, exist_ok=True)
-data_root = Path(os.path.join(args.input_directory))
-
-# segmentation labels
-left_ch_plexus = 31
-right_ch_plexus = 63
 
 def getSubjectID(path):
     """
@@ -54,57 +37,106 @@ def getSessionID(path):
         found = ''
     return found
 
+def process_samseg(dirs, derivatives_dir, freesurfer_path):
 
-def process_samseg(subdirs):
-    print(subdirs)
-    for subdir in subdirs:
+    for dir in dirs:
 
-        t1w_files = sorted(list(Path(subdir).rglob('*T1w.nii.gz')))  # within raw data dir
-        flair_files = sorted(list(Path(subdir).rglob('*FLAIR.nii.gz')))
+        # assemble T1w and FLAIR file lists
+        t1w = sorted(list(Path(dir).rglob('*T1w*')))
+        flair = sorted(list(Path(dir).rglob('*FLAIR*')))
 
-        print(t1w_files)
-        print(flair_files)
+        t1w = [str(x) for x in t1w]
+        flair = [str(x) for x in flair]
 
-        if len(t1w_files) == len(flair_files):
-            for i in range(len(t1w_files)):
-                co_reg_t1w_nifti = str(t1w_files[i])
-                co_reg_flair_nifti = str(flair_files[i])
+        if len(t1w) != len(flair):
+            # instead of using assert we use this mechanism due to parallel processing
+            # assert len(t1w) == len(flair), 'Mismatch T1w/FLAIR number'
+            # we do not check for file corresondance as lists are sorted anyway
+            print(f"Fatal Error for {dir}")
+            break
 
-                print(t1w_files)
+        # print(t1w)
+        
 
-                ch_plexus = co_reg_t1w_nifti.replace("T1w.nii.gz", "dseg.mgz")
-                ch_plexus_nifti = co_reg_t1w_nifti.replace("T1w.nii.gz", "dseg.nii.gz")
+        # 3) perform registartion with both T1w images
+        # mri_robust_template --mov tp0_t1.nii tp1_t1.nii tp2_t1.nii --template mean.mgz --satit --mapmov tp0_t1_reg.mgz tp1_t1_reg.mgz tp2_t1_reg.mgz
+        # create derivatives subfolder
 
-                print(ch_plexus_nifti)
 
-                os.system(f'export FREESURFER_HOME=$HOME/freesurfer ; \
-                        cd {subdir}/anat/ ; \
-                        run_samseg --input {co_reg_t1w_nifti} {co_reg_flair_nifti} --pallidum-separate --output seg; \
-                        mri_binarize --i seg/seg.mgz --match {left_ch_plexus} {right_ch_plexus} --o {ch_plexus}; \
-                        mri_convert {ch_plexus} {ch_plexus_nifti} ; \
+        # do the registration in a template folder and distribute its results to BIDS conform output directories later
+        temp_dir = os.path.join(derivatives_dir, f'sub-m{getSubjectID(t1w[0])}', 'temp')
+        Path(temp_dir).mkdir(parents=True, exist_ok=True)
+
+        t1w_reg = [str(Path(x).name).replace("T1w.nii.gz", "space-common_T1w.mgz") for x in t1w]
+        flair_reg_field = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.lta") for x in flair]
+        flair_reg = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.mgz") for x in flair]
+
+        '''
+        os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
+                    cd {temp_dir}; \
+                    mri_robust_template --mov {" ".join(map(str, t1w))} --template mean.mgz --satit --mapmov {" ".join(map(str, t1w_reg))};\
+                    ')
+
+
+        
+        # co-register flairs
+
+
+        for i in range(len(flair)):
+            os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
+                        cd {temp_dir}; \
+                        mri_coreg --mov {flair[i]} --ref {t1w_reg[i]} --reg {flair_reg_field[i]};\
                         ')
 
+            os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
+                        cd {temp_dir}; \
+                        mri_vol2vol --mov {flair[i]} --reg {flair_reg_field[i]} --o {flair_reg[i]} --targ {t1w_reg[i]};\
+                        ')
+        '''
+
+        cmd_arg = []
+
+        for i in range(len(flair)):
+            cmd_arg.append(f'--timepoint {t1w_reg[i]} {flair_reg[i]}')     
 
 
-if __name__ == '__main__':
+        os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
+                    cd {temp_dir}; \
+                    run_samseg_long {" ".join(map(str, cmd_arg))} --threads 1 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o output/\
+                    ')
 
-    dirs = sorted(list(data_root.glob('*')))
-    subdir_list = []
-    for dir in dirs:  # iterate over subdirs
-        # glob the session directories
-        subdirs = sorted(list(dir.glob('*')))
-        subdirs = [str(x) for x in subdirs]
-        subdir_list.append(subdirs)
+        
 
-    files = [item for sublist in subdir_list for item in sublist] # flatten list
-    files = split_list(files, args.number_of_workers)
+        
 
-    # initialize multithreading
-    pool = multiprocessing.Pool(processes=args.number_of_workers)
-    # creation, initialisation and launch of the different processes
-    for x in range(0, args.number_of_workers):
-        pool.apply_async(process_samseg, args=(files[x],))
 
-    pool.close()
-    pool.join()
 
+parser = argparse.ArgumentParser(description='Run SAMSEG Longitudinal Pipeline on cohort.')
+parser.add_argument('-i', '--input_directory', help='Folder of derivatives in BIDS database.', required=True)
+parser.add_argument('-n', '--number_of_workers', help='Number of parallel processing cores.', type=int, default=os.cpu_count()-1)
+parser.add_argument('-f', '--freesurfer_path', help='Path to freesurfer binaries.', default='/home/twiltgen/Tun_software/Freesurfer/FS_7.3.2/freesurfer')
+
+# read the arguments
+args = parser.parse_args()
+
+# generate derivatives/labels/
+derivatives_dir = os.path.join(args.input_directory, "derivatives/samseg-longitudinal-7.3.2")
+Path(derivatives_dir).mkdir(parents=True, exist_ok=True)
+data_root = Path(os.path.join(args.input_directory))
+
+dirs = sorted(list(data_root.glob('*')))
+
+# filter directories to only include sub-m folders
+dirs = [str(x) for x in dirs]
+dirs = [x for x in dirs if "sub-m" in x]
+
+files = split_list(dirs, args.number_of_workers)
+
+# initialize multithreading
+pool = multiprocessing.Pool(processes=args.number_of_workers)
+# creation, initialisation and launch of the different processes
+for x in range(0, args.number_of_workers):
+    pool.apply_async(process_samseg, args=(files[x],derivatives_dir, args.freesurfer_path))
+
+pool.close()
+pool.join()
