@@ -83,10 +83,10 @@ sub_array = []
 ses_array = []
 
 for id in dirs:
-    patient_id = id
+    patient_id = str(id).replace("m_","m")
     patient_path = os.path.join(args.input_directory, id)
     print('Patient ID:', patient_id)
-    bids_subdir = str("sub-"+patient_id).replace("m_","m")
+    bids_subdir = str("sub-"+patient_id)
     bids_subdir_path = os.path.join(bids_database_path,bids_subdir)
     try:
         os.mkdir(bids_subdir_path)
