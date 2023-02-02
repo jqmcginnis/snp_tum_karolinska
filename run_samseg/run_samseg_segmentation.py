@@ -42,6 +42,7 @@ def CopyandCheck(orig, target):
     '''
     This function tries to copy a file with current path "orig" to a target path "target" and 
     checks if the orig file exists and if it was copied successfully to target
+
     :param orig: full path of original location (with (original) filename in the path)
     :param target: full path of target location (with (new) filename in the path)
     '''
@@ -117,7 +118,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
                     cd {temp_dir}; \
                     run_samseg_long {" ".join(map(str, cmd_arg))} --threads 5 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o output/\
                     ')
-                    
+
         ### copy output files from temp folder to their session folders
         # write paths of output folders of the timepoint (tp) in a list
         tp_folder = sorted(list(str(x) for x in os.listdir(temp_dir_output) if "tp" in str(x)))
@@ -126,7 +127,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
         if len(tp_folder) > 1:
             # copy the mean image file
             mean_temp_location = os.path.join(temp_dir, "mean.mgz")
-            mean_target_location = os.path.join(derivatives_dir, f'sub-m{getSubjectID(t1w_reg[i])}', f'sub-m{getSubjectID(t1w_reg[i])}' + '_mean.mgz')
+            mean_target_location = os.path.join(derivatives_dir, f'sub-m{getSubjectID(t1w_reg[0])}', f'sub-m{getSubjectID(t1w_reg[0])}' + '_mean.mgz')
             CopyandCheck(mean_temp_location, mean_target_location)
             # iterate through all the timepoints 
             for i in range(len(tp_folder)):
@@ -145,7 +146,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
                     tp_files_bids = f'sub-m{getSubjectID(t1w_reg[i])}' + '_' + f'ses-{getSessionID(t1w_reg[i])}' + '_' + filename
                     # list template and target paths
                     tp_files_temp_path.append(os.path.join(tp_folder_path, filename))
-                    tp_files_ses_path.append(os.path.join(deriv_ses, "output", tp_files_bids))
+                    tp_files_ses_path.append(os.path.join(deriv_ses, tp_files_bids))
 
                 # define location of files in template folder
                 t1w_reg_temp_location = os.path.join(temp_dir, t1w_reg[i])
@@ -165,10 +166,6 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
                 CopyandCheck(flair_reg_temp_location, flair_reg_ses_location)
                 # FLAIR transformation file
                 CopyandCheck(flair_reg_field_temp_location, flair_reg_field_ses_location)
-                # check if output folder exists and only create it if it does not exist 
-                if not os.path.exists(os.path.join(deriv_ses, "output")):
-                    os.mkdir(os.path.join(deriv_ses, "output"))
-                    print(f'created directory {os.path.join(deriv_ses, "output")}')
                 # copy output files to target folder
                 for i in range(len(tp_files_temp_path)):
                     CopyandCheck(tp_files_temp_path[i], tp_files_ses_path[i])
@@ -181,8 +178,9 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
             raise ValueError(f'failed to delete the template folder: {temp_dir}')
         else:
             print(f'successfully deleted the template folder: {temp_dir}')
-
-
+            
+# end of function definitions
+###########################################################################################################
 
 
 
