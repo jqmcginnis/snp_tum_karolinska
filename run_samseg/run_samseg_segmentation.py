@@ -116,7 +116,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
         ### run SAMSEG longitudinal segmentation 
         os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                     cd {temp_dir}; \
-                    run_samseg_long {" ".join(map(str, cmd_arg))} --threads 5 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o output/\
+                    run_samseg_long {" ".join(map(str, cmd_arg))} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o output/\
                     ')
 
         ### copy output files from temp folder to their session folders
