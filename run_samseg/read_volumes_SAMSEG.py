@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import pandas as pd
 import re
+import numpy as np
 
 ###################################################
 # define functions
@@ -108,5 +109,33 @@ for i in range(len(seg_list)):
 # write stats table to .csv file in chosen output directory
 df_stat.to_csv(os.path.join(args.output_directory, "volume_stats.csv"), index=False)
 
+################
+# convert the volume_stats.csv file to flattened version 
+# (e.g., the data of different timepoints of the same subject are next to each other and no more one above/below the other)
 
+# initialize empty dataframe
+df_vol1 = pd.DataFrame(columns = df_stat.columns)
+df_vol2 = pd.DataFrame(columns = df_stat.columns)
+# get all sub-IDs that ar ein the volume_stats file
+sub_ls = []
+[sub_ls.append(x) for x in list(df_stat["sub-ID"]) if x not in sub_ls]
+
+for i in range(len(sub_ls)):
+    loop_subID = sub_ls[i]
+    loop_vol = df_stat[df_stat["sub-ID"]==loop_subID]
+    # create two separate dataframes for timepoint 1 and timepoint 2
+    df_vol1 = pd.concat([df_vol1, loop_vol[loop_vol["ses-ID"]==np.min(loop_vol["ses-ID"])]])
+    df_vol2 = pd.concat([df_vol2, loop_vol[loop_vol["ses-ID"]==np.max(loop_vol["ses-ID"])]])
+
+# add label of timepoint 1 or timepoint 2 to column names (keep sub-ID without label)
+df_vol1 = df_vol1.add_suffix(".t1").rename(columns={"sub-ID.t1":"sub-ID"})
+df_vol2 = df_vol2.add_suffix(".t2").rename(columns={"sub-ID.t2":"sub-ID"})
+
+# merge the two dataframes into one 
+# (now the data of different timepoints of the same subject are next to each other and no more one above/below the other)
+df_stat_flat = pd.merge(df_vol1, df_vol2, how = 'inner', on = 'sub-ID')
+
+# write the csv file
+df_stat_flat.to_csv(os.path.join(args.output_directory, "volume_stats_flat.csv"), index=False)
+    
 
