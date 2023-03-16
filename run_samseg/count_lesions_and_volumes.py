@@ -1,10 +1,44 @@
 import nibabel as nib
 import numpy as np
+import pandas as pd
 import argparse
 import os
 import sys
+import re
 from scipy import ndimage as ndi
 from skimage.morphology import binary_dilation
+
+###################################################
+# define functions
+
+def getSubjectID(path):
+    """
+    :param path: path to data file
+    :return: return the BIDS-compliant subject ID
+    """
+    stringList = str(path).split("/")
+    indices = [i for i, s in enumerate(stringList) if 'sub-' in s]
+    text = stringList[indices[0]]
+    try:
+        found = re.search(r'sub-m(\d{6})', text).group(1)
+    except AttributeError:
+        found = ''
+    return found
+
+def getSessionID(path):
+    """
+    :param path: path to data file
+    :return: return the BIDS-compliant session ID
+    """
+    stringList = str(path).split("/")
+    indices = [i for i, s in enumerate(stringList) if '_ses-' in s]
+    text = stringList[indices[0]]
+    try:
+        found = re.search(r'ses-(\d{8})', text).group(1)
+    except AttributeError:
+        found = ''
+    return found
+###################################################
 
 parser = argparse.ArgumentParser()
 
@@ -20,6 +54,9 @@ parser.add_argument('--max-overlap', type=float, default=0.3, help='Maximum over
 parser.add_argument('--debug', action='store_true', default=False, help='Verbose option, useful for debugging.')
 
 args = parser.parse_args()
+
+# get subject ID 
+subID = "sub-m"+getSubjectID(args.baseline)
 
 # Set-up connectivity matrix
 if args.connectivity == 26:
@@ -225,15 +262,28 @@ print("Total lesion volume: " + str(bl_min_fu_volume))
 print("Effective number of followup lesions: " + str(thresholded_baseline_lesions + new_lesions - disappearing_lesions))
 
 # Save results to file
-np.savez(os.path.join(args.output, "lesion_count_and_total_volume.npz"), bl_les=thresholded_baseline_lesions,
-                                                                         bl_vol_les=baseline_volume,
-                                                                         fu_les=thresholded_followup_lesions,
-                                                                         fu_les_eff=thresholded_baseline_lesions + new_lesions - disappearing_lesions,
-                                                                         fu_vol_les=followup_volume,
-                                                                         fu_min_bl_les=enlarging_lesions + new_lesions,
-                                                                         fu_min_bl_vol_les=fu_min_bl_volume,
-                                                                         bl_min_fu_les=disappearing_lesions + shrinking_lesions,
-                                                                         bl_min_fu_vol_les=bl_min_fu_volume)
+np.savez(os.path.join(args.output, subID+"_longi_lesions.npz"), bl_les=thresholded_baseline_lesions,
+                                                                bl_vol_les=baseline_volume,
+                                                                fu_les=thresholded_followup_lesions,
+                                                                fu_les_eff=thresholded_baseline_lesions + new_lesions - disappearing_lesions,
+                                                                fu_vol_les=followup_volume,
+                                                                fu_min_bl_les=enlarging_lesions + new_lesions,
+                                                                fu_min_bl_vol_les=fu_min_bl_volume,
+                                                                bl_min_fu_les=disappearing_lesions + shrinking_lesions,
+                                                                bl_min_fu_vol_les=bl_min_fu_volume)
+# Save results to csv file
+print("Printing results to .csv file.")
+lesion_df = pd.DataFrame()
+lesion_df.loc[1,"bl_les"] = thresholded_baseline_lesions
+lesion_df.loc[1,"bl_vol_les"] = baseline_volume
+lesion_df.loc[1,"fu_les"] = thresholded_followup_lesions
+lesion_df.loc[1,"fu_les_eff"] = thresholded_baseline_lesions + new_lesions - disappearing_lesions
+lesion_df.loc[1,"fu_vol_les"] = followup_volume
+lesion_df.loc[1,"fu_min_bl_les"] = enlarging_lesions + new_lesions
+lesion_df.loc[1,"fu_min_bl_vol_les"] = fu_min_bl_volume
+lesion_df.loc[1,"bl_min_fu_les"] = disappearing_lesions + shrinking_lesions
+lesion_df.loc[1,"bl_min_fu_vol_les"] = bl_min_fu_volume
+lesion_df.to_csv(os.path.join(args.output, subID+"_longi_lesions.csv"), index=False)
 
 if args.save_images:        
 
@@ -257,12 +307,12 @@ if args.save_images:
 
     # Save images
     img = nib.Nifti1Image(lesions_baseline, baseline_affine)
-    nib.save(img, os.path.join(args.output, "bl_lesions.nii.gz"))
+    nib.save(img, os.path.join(args.output, subID+"_bl_lesions.nii.gz"))
     img = nib.Nifti1Image(lesions_followup, baseline_affine)
-    nib.save(img, os.path.join(args.output, "fu_lesions.nii.gz"))
+    nib.save(img, os.path.join(args.output, subID+"_fu_lesions.nii.gz"))
     img = nib.Nifti1Image(lesions_fu_min_bl, baseline_affine)
-    nib.save(img, os.path.join(args.output, "fu_min_bl_lesions.nii.gz"))
+    nib.save(img, os.path.join(args.output, subID+"_fu-min-bl_lesions.nii.gz"))
     img = nib.Nifti1Image(lesions_bl_min_fu, baseline_affine)
-    nib.save(img, os.path.join(args.output, "bl_min_fu_lesions.nii.gz"))
+    nib.save(img, os.path.join(args.output, subID+"_bl-min-fu_lesions.nii.gz"))
 
 print("Done!")
