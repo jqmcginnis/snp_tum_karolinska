@@ -5,46 +5,7 @@ import pandas as pd
 import re
 import numpy as np
 
-###################################################
-# define functions
-
-def getSubjectID(path):
-    """
-    :param path: path to data file
-    :return: return the BIDS-compliant subject ID
-    """
-    stringList = str(path).split("/")
-    indices = [i for i, s in enumerate(stringList) if 'sub-' in s]
-    text = stringList[indices[0]]
-    try:
-        found = re.search(r'sub-m(\d{6})', text).group(1)
-    except AttributeError:
-        found = ''
-    return found
-
-def getSessionID(path):
-    """
-    :param path: path to data file
-    :return: return the BIDS-compliant session ID
-    """
-    stringList = str(path).split("/")
-    indices = [i for i, s in enumerate(stringList) if '_ses-' in s]
-    text = stringList[indices[0]]
-    try:
-        found = re.search(r'ses-(\d{8})', text).group(1)
-    except AttributeError:
-        found = ''
-    return found
-
-def getSegList(path):
-    '''
-    This function lists all "*_seg.mgz"-files that are in the given path. 
-
-    :param path: path to BIDS derviatives database
-    :return: return the lists of "*_seg.mgz"-files.
-    '''
-    seg_ls = sorted(list(Path(path).rglob('*_seg.mgz')))
-    return seg_ls
+from utils import getSegList, getSessionID, getSubjectID
 
 def combineStats(path, subID, sesID):
     '''
@@ -56,8 +17,8 @@ def combineStats(path, subID, sesID):
     :return: return the volumes in a dataframe
     '''
     # define path of stat files and load them as dataframe
-    samseg_path = os.path.join(path, "sub-m"+subID, "ses-"+sesID, "anat", "sub-m"+subID+"_ses-"+sesID+"_samseg.stats")
-    tiv_path = os.path.join(path, "sub-m"+subID, "ses-"+sesID, "anat", "sub-m"+subID+"_ses-"+sesID+"_sbtiv.stats")
+    samseg_path = os.path.join(path, "sub-"+subID, "ses-"+sesID, "anat", "sub-"+subID+"_ses-"+sesID+"_samseg.stats")
+    tiv_path = os.path.join(path, "sub-"+subID, "ses-"+sesID, "anat", "sub-"+subID+"_ses-"+sesID+"_sbtiv.stats")
     df_samseg_stat = pd.read_csv(samseg_path, header=None, names=["ROI", "volume", "unit"])
     df_tiv_stat = pd.read_csv(tiv_path, header=None, names=["ROI", "volume", "unit"])
 
@@ -70,7 +31,7 @@ def combineStats(path, subID, sesID):
     df.columns = list(df.iloc[0,0:])
     df = df.drop(index = 'ROI').reset_index().drop("index", axis=1)
     # add subject ID and session ID to the dataframe
-    df["sub-ID"] = "m"+subID
+    df["sub-ID"] = subID
     df["ses-ID"]= sesID
     df_IDs=df[["sub-ID", "ses-ID"]]
     df.drop(labels=["sub-ID", "ses-ID"], axis=1, inplace=True)
