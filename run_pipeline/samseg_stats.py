@@ -235,6 +235,7 @@ def generate_samseg_stats(bl_path, fu_path, output_path, min_size=15.0, connecti
     # Save results to csv file
     print("Printing results to .csv file.")
     lesion_df = pd.DataFrame()
+    lesion_df.loc[1,"sub-ID"] = getSubjectID(bl_path)
     lesion_df.loc[1,"bl_les"] = thresholded_baseline_lesions
     lesion_df.loc[1,"bl_vol_les"] = baseline_volume
     lesion_df.loc[1,"fu_les"] = thresholded_followup_lesions
