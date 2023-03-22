@@ -6,6 +6,10 @@ We expect you to install the following dependencies:
 
 - Freesurfer v. 7.3.2, c.f.: https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall
 
+Please create a python environment (venv/conda/...) with the follwoing dependencies:
+- Nibabel
+- ...
+
 ### Introduction
 
 Our cohort database is NOT BIDS-compliant by default - to have better control of it, we use a script to BIDSify our database structure.
@@ -49,7 +53,6 @@ BIDS-compliant datastructure:
 
 ```
 .
-├── bids.txt
 ├── dataset_description.json
 ├── derivatives
 ├── participants.csv
@@ -96,13 +99,13 @@ BIDS-compliant datastructure:
 1. To generate the BIDS-compliant database strucure, please run:
 
 ```
-python3 bids/bidsify_dataset.py --input_directory /path/to/non-bids-compliant-db --output_directory /path/where/you/want/to/store/bids/db
+python3 bidsify_dataset/bidsify_dataset.py --input_directory /path/to/non-bids-compliant-db --output_directory /path/where/you/want/to/store/bids/db
 ```
 
 2. To run the samseg longitudinal pipeline, please install freesurfer and run the fllowing command:
 
 ```
-python3 run_samseg/run_samseg_segmentation.py --input_directory /path/to/bids --number_of_workers 32 --freesurfer_path /path/to/fs/installation
+python3 run_pipeline/run_pipeline.py --input_directory /path/to/bids --number_of_workers 32 --freesurfer_path /path/to/fs/installation
 ```
 
 ### Analysis / Evaluation

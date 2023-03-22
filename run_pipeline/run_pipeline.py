@@ -3,57 +3,8 @@ import os
 import shutil
 from pathlib import Path
 import multiprocessing
-import re
-
-def split_list(alist, splits=1):
-    length = len(alist)
-    return [alist[i * length // splits: (i + 1) * length // splits]
-            for i in range(splits)]
-
-def getSubjectID(path):
-    """
-    :param path: path to data file
-    :return: return the BIDS-compliant subject ID
-    """
-    stringList = str(path).split("/")
-    indices = [i for i, s in enumerate(stringList) if 'sub-' in s]
-    text = stringList[indices[0]]
-    try:
-        found = re.search(r'sub-m(\d{6})', text).group(1)
-    except AttributeError:
-        found = ''
-    return found
-
-def getSessionID(path):
-    """
-    :param path: path to data file
-    :return: return the BIDS-compliant session ID
-    """
-    stringList = str(path).split("/")
-    indices = [i for i, s in enumerate(stringList) if '_ses-' in s]
-    text = stringList[indices[0]]
-    try:
-        found = re.search(r'ses-(\d{8})', text).group(1)
-    except AttributeError:
-        found = ''
-    return found
-
-def CopyandCheck(orig, target):
-    '''
-    This function tries to copy a file with current path "orig" to a target path "target" and 
-    checks if the orig file exists and if it was copied successfully to target
-
-    :param orig: full path of original location (with (original) filename in the path)
-    :param target: full path of target location (with (new) filename in the path)
-    '''
-    if os.path.exists(orig):
-        shutil.copy(orig, target)
-        if not os.path.exists(target):
-            raise ValueError(f'failed to copy {orig}')
-        else:
-            print(f'successfully copied {os.path.basename(orig)} to {os.path.basename(target)} target location')
-    else:
-        raise Warning(f'file {os.path.basename(orig)} does not exist in original folder!')
+from utils import getSessionID, getSubjectID, CopyandCheck, split_list
+from samseg_stats import generate_samseg_stats
 
 def process_samseg(dirs, derivatives_dir, freesurfer_path):
 
@@ -76,18 +27,23 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
         ### perform registartion with both T1w images
         # do the registration in a template folder and distribute its results to BIDS conform output directories later
         # create template folder
-        temp_dir = os.path.join(derivatives_dir, f'sub-m{getSubjectID(t1w[0])}', 'temp')
+        print(t1w)
+        temp_dir = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}', 'temp')
+        print(temp_dir)
         temp_dir_output = os.path.join(temp_dir, "output")
+        print(temp_dir_output)
         Path(temp_dir_output).mkdir(parents=True, exist_ok=True)
         # pre-define paths of registered images 
         t1w_reg = [str(Path(x).name).replace("T1w.nii.gz", "space-common_T1w.mgz") for x in t1w]
         flair_reg_field = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.lta") for x in flair]
         flair_reg = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.mgz") for x in flair]
         # call SAMSEG 
+        print(getSubjectID(t1w[0]))
         os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                     cd {temp_dir}; \
                     mri_robust_template --mov {" ".join(map(str, t1w))} --template mean.mgz --satit --mapmov {" ".join(map(str, t1w_reg))};\
-                    ')
+                    ')        
+        
 
         ### co-register flairs to their corresponding registered T1w images
         # initialize an empty list fo timepoint argument for samseg that will be used later
@@ -110,7 +66,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
             cmd_arg.append(f'--timepoint {t1w_reg[i]} {flair_reg[i]}') 
 
             # generate a derivative folder for each session (BIDS)
-            deriv_ses = os.path.join(derivatives_dir, f'sub-m{getSubjectID(t1w[i])}', f'ses-{getSessionID(t1w[i])}', 'anat')
+            deriv_ses = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'ses-{getSessionID(t1w[i])}', 'anat')
             Path(deriv_ses).mkdir(parents=True, exist_ok=True)
 
         ### run SAMSEG longitudinal segmentation 
@@ -127,7 +83,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
         if len(tp_folder) > 1:
             # copy the mean image file
             mean_temp_location = os.path.join(temp_dir, "mean.mgz")
-            mean_target_location = os.path.join(derivatives_dir, f'sub-m{getSubjectID(t1w_reg[0])}', f'sub-m{getSubjectID(t1w_reg[0])}' + '_mean.mgz')
+            mean_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_mean.mgz')
             CopyandCheck(mean_temp_location, mean_target_location)
             # iterate through all the timepoints 
             for i in range(len(tp_folder)):
@@ -136,14 +92,14 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
                 tp_files_ses_path = []
 
                 # define target path in derivatives (BIDS-conform)
-                deriv_ses = os.path.join(derivatives_dir, f'sub-m{getSubjectID(t1w_reg[i])}', f'ses-{getSessionID(t1w_reg[i])}', 'anat') 
+                deriv_ses = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[i])}', f'ses-{getSessionID(t1w_reg[i])}', 'anat') 
                 
                 # write template paths and target paths of files of timepoint i into a list (and prepend subject & session IDs (BIDS convention))
                 tp_folder_path = os.path.join(temp_dir_output, tp_folder[i])
                 tp_files = os.listdir(tp_folder_path)
                 for filename in tp_files:
                     # rename to BIDS
-                    tp_files_bids = f'sub-m{getSubjectID(t1w_reg[i])}' + '_' + f'ses-{getSessionID(t1w_reg[i])}' + '_' + filename
+                    tp_files_bids = f'sub-{getSubjectID(t1w_reg[i])}' + '_' + f'ses-{getSessionID(t1w_reg[i])}' + '_' + filename
                     # list template and target paths
                     tp_files_temp_path.append(os.path.join(tp_folder_path, filename))
                     tp_files_ses_path.append(os.path.join(deriv_ses, tp_files_bids))
@@ -178,38 +134,42 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
             raise ValueError(f'failed to delete the template folder: {temp_dir}')
         else:
             print(f'successfully deleted the template folder: {temp_dir}')
+
+        # generate the actual samseg volumetric stats
+        # timepoint 1 segmentation
+        # deriv_ses = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'ses-{getSessionID(t1w[i])}', 'anat')
+        filename = f'sub-{getSubjectID(t1w[0])}_ses-{getSessionID(t1w[0])}_seg.mgz'
+        bl_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}', f'ses-{getSessionID(t1w[0])}', 'anat', filename)
+        filename = f'sub-{getSubjectID(t1w[1])}_ses-{getSessionID(t1w[1])}_seg.mgz'
+        fu_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[1])}', f'ses-{getSessionID(t1w[1])}', 'anat', filename)
+        output_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}')
+        generate_samseg_stats(bl_path=bl_path, fu_path=fu_path, output_path=output_path)
             
-# end of function definitions
-###########################################################################################################
+if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(description='Run SAMSEG Longitudinal Pipeline on cohort.')
+    parser.add_argument('-i', '--input_directory', help='Folder of derivatives in BIDS database.', required=True)
+    parser.add_argument('-n', '--number_of_workers', help='Number of parallel processing cores.', type=int, default=os.cpu_count()-1)
+    parser.add_argument('-f', '--freesurfer_path', help='Path to freesurfer binaries.', default='/home/twiltgen/Tun_software/Freesurfer/FS_7.3.2/freesurfer')
 
+    # read the arguments
+    args = parser.parse_args()
 
-parser = argparse.ArgumentParser(description='Run SAMSEG Longitudinal Pipeline on cohort.')
-parser.add_argument('-i', '--input_directory', help='Folder of derivatives in BIDS database.', required=True)
-parser.add_argument('-n', '--number_of_workers', help='Number of parallel processing cores.', type=int, default=os.cpu_count()-1)
-parser.add_argument('-f', '--freesurfer_path', help='Path to freesurfer binaries.', default='/home/twiltgen/Tun_software/Freesurfer/FS_7.3.2/freesurfer')
+    # generate derivatives/labels/
+    derivatives_dir = os.path.join(args.input_directory, "derivatives/samseg-longitudinal-7.3.2")
+    Path(derivatives_dir).mkdir(parents=True, exist_ok=True)
+    data_root = Path(os.path.join(args.input_directory))
 
-# read the arguments
-args = parser.parse_args()
+    dirs = sorted(list(data_root.glob('*')))
+    dirs = [str(x) for x in dirs]
+    dirs = [x for x in dirs if "sub-" in x]
+    files = split_list(dirs, args.number_of_workers)
 
-# generate derivatives/labels/
-derivatives_dir = os.path.join(args.input_directory, "derivatives/samseg-longitudinal-7.3.2")
-Path(derivatives_dir).mkdir(parents=True, exist_ok=True)
-data_root = Path(os.path.join(args.input_directory))
+    # initialize multithreading
+    pool = multiprocessing.Pool(processes=args.number_of_workers)
+    # creation, initialisation and launch of the different processes
+    for x in range(0, args.number_of_workers):
+        pool.apply_async(process_samseg, args=(files[x], derivatives_dir, args.freesurfer_path))
 
-dirs = sorted(list(data_root.glob('*')))
-
-# filter directories to only include sub-m folders
-dirs = [str(x) for x in dirs]
-dirs = [x for x in dirs if "sub-m" in x]
-
-files = split_list(dirs, args.number_of_workers)
-
-# initialize multithreading
-pool = multiprocessing.Pool(processes=args.number_of_workers)
-# creation, initialisation and launch of the different processes
-for x in range(0, args.number_of_workers):
-    pool.apply_async(process_samseg, args=(files[x], derivatives_dir, args.freesurfer_path))
-
-pool.close()
-pool.join()
+    pool.close()
+    pool.join()
