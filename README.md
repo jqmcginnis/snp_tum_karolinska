@@ -6,9 +6,7 @@ We expect you to install the following dependencies:
 
 - Freesurfer v. 7.3.2, c.f.: https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall
 
-Please create a python environment (venv/conda/...) with the follwoing dependencies:
-- Nibabel
-- ...
+Please create a conda environment using [environment.yml](environment.yml).
 
 ### Introduction
 
