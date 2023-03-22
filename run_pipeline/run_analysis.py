@@ -73,30 +73,49 @@ df_stat.to_csv(os.path.join(args.output_directory, "volume_stats.csv"), index=Fa
 ################
 # convert the volume_stats.csv file to flattened version 
 # (e.g., the data of different timepoints of the same subject are next to each other and no more one above/below the other)
+# and gather the longitudinal lesion data of each case and put them in one dataframe
 
 # initialize empty dataframe
 df_vol1 = pd.DataFrame(columns = df_stat.columns)
 df_vol2 = pd.DataFrame(columns = df_stat.columns)
+df_lesions = pd.DataFrame()
 # get all sub-IDs that ar ein the volume_stats file
 sub_ls = []
 [sub_ls.append(x) for x in list(df_stat["sub-ID"]) if x not in sub_ls]
 
+# iteratet hrough all subjects and disentangle the volume dataframe and 
+# combine longitudinal lesion data in one dataframe  
 for i in range(len(sub_ls)):
     loop_subID = sub_ls[i]
+    ## volume data
     loop_vol = df_stat[df_stat["sub-ID"]==loop_subID]
     # create two separate dataframes for timepoint 1 and timepoint 2
     df_vol1 = pd.concat([df_vol1, loop_vol[loop_vol["ses-ID"]==np.min(loop_vol["ses-ID"])]])
     df_vol2 = pd.concat([df_vol2, loop_vol[loop_vol["ses-ID"]==np.max(loop_vol["ses-ID"])]])
+    ## longitudinal lesion data
+    # get lesion data of current subject
+    loop_lesion = pd.read_csv(os.path.join(derivatives_dir, "sub-"+loop_subID, "sub-"+loop_subID+"_longi_lesions.csv"))
+    # write stats in the final dataframe
+    df_lesions = pd.concat([df_lesions, loop_lesion])
 
+## volume data
 # add label of timepoint 1 or timepoint 2 to column names (keep sub-ID without label)
 df_vol1 = df_vol1.add_suffix(".t1").rename(columns={"sub-ID.t1":"sub-ID"})
 df_vol2 = df_vol2.add_suffix(".t2").rename(columns={"sub-ID.t2":"sub-ID"})
-
 # merge the two dataframes into one 
 # (now the data of different timepoints of the same subject are next to each other and no more one above/below the other)
 df_stat_flat = pd.merge(df_vol1, df_vol2, how = 'inner', on = 'sub-ID')
-
 # write the csv file
 df_stat_flat.to_csv(os.path.join(args.output_directory, "volume_stats_flat.csv"), index=False)
-    
 
+## longitudinal lesion data
+# rename columns
+df_lesions.columns = loop_lesion.columns
+# write lesion data to csv file 
+df_lesions.to_csv(os.path.join(args.output_directory, "lesion_stats.csv"), index=False)
+
+## combine volume and longitudinal lesion data
+# merge volume and lesion data
+df_vol_lesion = pd.merge(df_stat_flat, df_lesions, how = 'inner', on = 'sub-ID')
+# write merged data to csv file
+df_vol_lesion.to_csv(os.path.join(args.output_directory, "volume_lesion_stats.csv"), index=False)
