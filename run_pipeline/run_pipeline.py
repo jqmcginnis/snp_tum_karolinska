@@ -6,7 +6,7 @@ import multiprocessing
 from utils import getSessionID, getSubjectID, CopyandCheck, split_list
 from samseg_stats import generate_samseg_stats
 
-def process_samseg(dirs, derivatives_dir, freesurfer_path):
+def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path):
 
     for dir in dirs:
 
@@ -27,7 +27,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
         ### perform registartion with both T1w images
         # do the registration in a template folder and distribute its results to BIDS conform output directories later
         # create template folder
-        print(t1w)
+        #print(t1w)
         temp_dir = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}', 'temp')
         print(temp_dir)
         temp_dir_output = os.path.join(temp_dir, "output")
@@ -74,6 +74,13 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
                     cd {temp_dir}; \
                     run_samseg_long {" ".join(map(str, cmd_arg))} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o output/\
                     ')
+        
+        ### run FSL-SIENA to calculate PBVC
+        os.system(f'FSLDIR={fsl_path};\
+                    . ${{FSLDIR}}/etc/fslconf/fsl.sh;\
+                    PATH=${{FSLDIR}}/bin:${{PATH}};\
+                    export FSLDIR PATH;\
+                    {fsl_path}/bin/siena {Path(t1w[0])} {Path(t1w[1])} -o {temp_dir} -B "-f 0.2 -B"')
 
         ### copy output files from temp folder to their session folders
         # write paths of output folders of the timepoint (tp) in a list
@@ -85,6 +92,10 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path):
             mean_temp_location = os.path.join(temp_dir, "mean.mgz")
             mean_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_mean.mgz')
             CopyandCheck(mean_temp_location, mean_target_location)
+            # copy the SIENA PBVC html report
+            pbvc_temp_location = os.path.join(temp_dir, "report.html")
+            pbvc_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_PBVC-report.mgz')
+            CopyandCheck(pbvc_temp_location, pbvc_target_location)
             # iterate through all the timepoints 
             for i in range(len(tp_folder)):
                 # initialize empty lists
@@ -151,6 +162,7 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--input_directory', help='Folder of derivatives in BIDS database.', required=True)
     parser.add_argument('-n', '--number_of_workers', help='Number of parallel processing cores.', type=int, default=os.cpu_count()-1)
     parser.add_argument('-f', '--freesurfer_path', help='Path to freesurfer binaries.', default='/home/twiltgen/Tun_software/Freesurfer/FS_7.3.2/freesurfer')
+    parser.add_argument('-fsl', '--fsl_path', help='Path to FSL binaries.', default='/home/twiltgen/Tun_software/FSL/fsl_6.0.4/fsl')
 
     # read the arguments
     args = parser.parse_args()
@@ -169,7 +181,7 @@ if __name__ == "__main__":
     pool = multiprocessing.Pool(processes=args.number_of_workers)
     # creation, initialisation and launch of the different processes
     for x in range(0, args.number_of_workers):
-        pool.apply_async(process_samseg, args=(files[x], derivatives_dir, args.freesurfer_path))
+        pool.apply_async(process_samseg, args=(files[x], derivatives_dir, args.freesurfer_path, args.fsl_path))
 
     pool.close()
     pool.join()
