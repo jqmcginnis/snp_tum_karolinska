@@ -3,7 +3,7 @@ import os
 import shutil
 from pathlib import Path
 import multiprocessing
-from utils import getSessionID, getSubjectID, CopyandCheck, split_list
+from utils import getSessionID, getSubjectID, MoveandCheck, split_list
 from samseg_stats import generate_samseg_stats
 
 def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path):
@@ -91,11 +91,11 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path):
             # copy the mean image file
             mean_temp_location = os.path.join(temp_dir, "mean.mgz")
             mean_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_mean.mgz')
-            CopyandCheck(mean_temp_location, mean_target_location)
+            MoveandCheck(mean_temp_location, mean_target_location)
             # copy the SIENA PBVC html report
             pbvc_temp_location = os.path.join(temp_dir, "report.html")
-            pbvc_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_PBVC-report.mgz')
-            CopyandCheck(pbvc_temp_location, pbvc_target_location)
+            pbvc_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_PBVC-report.html')
+            MoveandCheck(pbvc_temp_location, pbvc_target_location)
             # iterate through all the timepoints 
             for i in range(len(tp_folder)):
                 # initialize empty lists
@@ -128,24 +128,24 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path):
                 # copy files from template output folder to target output folder (one output folder per session)
                 # each time there is a check if the file in the temp folder exists and if it  was copied successfully
                 # T1w
-                CopyandCheck(t1w_reg_temp_location, t1w_reg_ses_location)
+                MoveandCheck(t1w_reg_temp_location, t1w_reg_ses_location)
                 # FLAIR
-                CopyandCheck(flair_reg_temp_location, flair_reg_ses_location)
+                MoveandCheck(flair_reg_temp_location, flair_reg_ses_location)
                 # FLAIR transformation file
-                CopyandCheck(flair_reg_field_temp_location, flair_reg_field_ses_location)
+                MoveandCheck(flair_reg_field_temp_location, flair_reg_field_ses_location)
                 # copy output files to target folder
                 for i in range(len(tp_files_temp_path)):
-                    CopyandCheck(tp_files_temp_path[i], tp_files_ses_path[i])
+                    MoveandCheck(tp_files_temp_path[i], tp_files_ses_path[i])
         else:
             print(f'-- Only one or no timepoint in template folder, therefore no longitudinal data copied!')
 
         # delete the temp folder
-        shutil.rmtree(temp_dir)
-        if os.path.exists(temp_dir):
-            raise ValueError(f'failed to delete the template folder: {temp_dir}')
-        else:
-            print(f'successfully deleted the template folder: {temp_dir}')
-
+        #shutil.rmtree(temp_dir)
+        #if os.path.exists(temp_dir):
+        #    raise ValueError(f'failed to delete the template folder: {temp_dir}')
+        #else:
+        #    print(f'successfully deleted the template folder: {temp_dir}')
+ 
         # generate the actual samseg volumetric stats
         # timepoint 1 segmentation
         # deriv_ses = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'ses-{getSessionID(t1w[i])}', 'anat')
@@ -161,8 +161,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run SAMSEG Longitudinal Pipeline on cohort.')
     parser.add_argument('-i', '--input_directory', help='Folder of derivatives in BIDS database.', required=True)
     parser.add_argument('-n', '--number_of_workers', help='Number of parallel processing cores.', type=int, default=os.cpu_count()-1)
-    parser.add_argument('-f', '--freesurfer_path', help='Path to freesurfer binaries.', default='/home/twiltgen/Tun_software/Freesurfer/FS_7.3.2/freesurfer')
-    parser.add_argument('-fsl', '--fsl_path', help='Path to FSL binaries.', default='/home/twiltgen/Tun_software/FSL/fsl_6.0.4/fsl')
+    parser.add_argument('-f', '--freesurfer_path', help='Path to freesurfer binaries.', default='/home/jmcginnis/freesurfer')
+    parser.add_argument('-fsl', '--fsl_path', help='Path to FSL binaries.', default='/home/jmcginnis/fsl')
 
     # read the arguments
     args = parser.parse_args()
@@ -185,3 +185,4 @@ if __name__ == "__main__":
 
     pool.close()
     pool.join()
+
