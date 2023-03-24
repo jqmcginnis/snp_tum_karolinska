@@ -5,7 +5,7 @@ import pandas as pd
 import re
 import numpy as np
 
-from utils import getSegList, getSessionID, getSubjectID
+from utils import getSegList, getSessionID, getSubjectID, parse_pbvc_from_html_fsl
 
 def combineStats(path, subID, sesID):
     '''
