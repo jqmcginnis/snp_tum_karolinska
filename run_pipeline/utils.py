@@ -2,6 +2,8 @@ import os
 import shutil
 from pathlib import Path
 import re
+from bs4 import BeautifulSoup
+import numpy as np
 
 # bids helpers
 def getSubjectID(path):
@@ -40,17 +42,17 @@ def split_list(alist, splits=1):
 
 
 # path helpers
-def CopyandCheck(orig, target):
+def MoveandCheck(orig, target):
     '''
-    This function tries to copy a file with current path "orig" to a target path "target" and 
+    This function tries to move a file with current path "orig" to a target path "target" and 
     checks if the orig file exists and if it was copied successfully to target
     :param orig: full path of original location (with (original) filename in the path)
     :param target: full path of target location (with (new) filename in the path)
     '''
     if os.path.exists(orig):
-        shutil.copy(orig, target)
+        shutil.move(orig, target)
         if not os.path.exists(target):
-            raise ValueError(f'failed to copy {orig}')
+            raise ValueError(f'failed to move {orig}')
         else:
             print(f'successfully copied {os.path.basename(orig)} to {os.path.basename(target)} target location')
     else:
@@ -66,3 +68,18 @@ def getSegList(path):
     '''
     seg_ls = sorted(list(Path(path).rglob('*_seg.mgz')))
     return seg_ls
+
+def parse_pbvc_from_html_fsl(filename):
+    with open(filename,'r') as f:
+        html_content = f.read()
+    soup = BeautifulSoup(html_content, 'html.parser')
+    pbvc_text = str(soup.find_all('b')[5])
+    assert "PBVC" in pbvc_text, 'Cannot extract pbvc from report.html, naming convention changed!'
+    match = re.search(r'-?\d+.\d+',pbvc_text)
+    if match:
+        pbvc_value = float(match.group())
+    
+    else:
+        pbvc_value = np.nan
+
+    return pbvc_value
