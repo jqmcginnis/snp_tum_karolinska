@@ -5,6 +5,8 @@
 We expect you to install the following dependencies:
 
 - Freesurfer v. 7.3.2, c.f.: https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall
+- FSL v.6.0, c.f.: https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation/Linux
+
 
 Please create a conda environment using [environment.yml](environment.yml).
 
