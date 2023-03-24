@@ -75,11 +75,6 @@ def parse_pbvc_from_html_fsl(filename):
     soup = BeautifulSoup(html_content, 'html.parser')
     pbvc_text = str(soup.find_all('b')[5])
     assert "PBVC" in pbvc_text, 'Cannot extract pbvc from report.html, naming convention changed!'
-    match = re.search(r'-?\d+.\d+',pbvc_text)
-    if match:
-        pbvc_value = float(match.group())
-    
-    else:
-        pbvc_value = np.nan
-
+    number = pbvc_text.split(':')[1]
+    pbvc_value = float(number.split('<')[0])
     return pbvc_value
