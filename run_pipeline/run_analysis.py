@@ -5,7 +5,7 @@ import pandas as pd
 import re
 import numpy as np
 
-from utils import getSegList, getSessionID, getSubjectID
+from utils import getSegList, getSessionID, getSubjectID, parse_pbvc_from_html_fsl
 
 def combineStats(path, subID, sesID):
     '''
@@ -68,7 +68,7 @@ for i in range(len(seg_list)):
     df_stat = pd.concat([df_stat, loop_stat])
 
 # write stats table to .csv file in chosen output directory
-df_stat.to_csv(os.path.join(args.output_directory, "volume_stats.csv"), index=False)
+# df_stat.to_csv(os.path.join(args.output_directory, "volume_stats.csv"), index=False)
 
 ################
 # convert the volume_stats.csv file to flattened version 
@@ -95,6 +95,8 @@ for i in range(len(sub_ls)):
     ## longitudinal lesion data
     # get lesion data of current subject
     loop_lesion = pd.read_csv(os.path.join(derivatives_dir, "sub-"+loop_subID, "sub-"+loop_subID+"_longi_lesions.csv"))
+    # append pbvc value
+    loop_lesion["pbvc"] = parse_pbvc_from_html_fsl(os.path.join(derivatives_dir, "sub-"+loop_subID, f"sub-{loop_subID}_PBVC-report.html"))
     # write stats in the final dataframe
     df_lesions = pd.concat([df_lesions, loop_lesion])
 
@@ -106,13 +108,13 @@ df_vol2 = df_vol2.add_suffix(".t2").rename(columns={"sub-ID.t2":"sub-ID"})
 # (now the data of different timepoints of the same subject are next to each other and no more one above/below the other)
 df_stat_flat = pd.merge(df_vol1, df_vol2, how = 'inner', on = 'sub-ID')
 # write the csv file
-df_stat_flat.to_csv(os.path.join(args.output_directory, "volume_stats_flat.csv"), index=False)
+#df_stat_flat.to_csv(os.path.join(args.output_directory, "volume_stats_flat.csv"), index=False)
 
 ## longitudinal lesion data
 # rename columns
 df_lesions.columns = loop_lesion.columns
-# write lesion data to csv file 
-df_lesions.to_csv(os.path.join(args.output_directory, "lesion_stats.csv"), index=False)
+#write lesion data to csv file 
+# df_lesions.to_csv(os.path.join(args.output_directory, "lesion_stats.csv"), index=False)
 
 ## combine volume and longitudinal lesion data
 # merge volume and lesion data
