@@ -344,7 +344,7 @@ python3 bidsify_dataset/bidsify_dataset.py --input_directory /path/to/non-bids-c
 2. To run the samseg longitudinal pipeline + fsl-based pbvc calculation, please install freesurfer/fsl respectively and run the following command:
 
 ```
-python3 run_pipeline/run_pipeline.py --input_directory /path/to/bids --number_of_workers 32 --freesurfer_path /path/to/fs/installation
+python3 run_pipeline/run_pipeline.py --input_directory /path/to/bids --number_of_workers 32 --freesurfer_path /path/to/fs/installation --fsl_path /path/to/fsl
 ```
 
 3. To aggregate all results into a single csv tabel for analysis please run the following command:
