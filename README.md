@@ -350,7 +350,7 @@ python3 run_pipeline/run_pipeline.py --input_directory /path/to/bids --number_of
 3. To aggregate all results into a single csv tabel for analysis please run the following command:
 
 ```
-python3 run_pipeline/run_pipeline.py --input_directory /path/to/processed/cohort --output_directory /path/to/output
+python3 run_pipeline/run_analysis.py --input_directory /path/to/processed/cohort --output_directory /path/to/output
 ```
 
 ### Any questions?
