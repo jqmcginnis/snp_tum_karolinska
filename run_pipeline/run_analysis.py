@@ -97,6 +97,7 @@ for i in range(len(sub_ls)):
     loop_lesion = pd.read_csv(os.path.join(derivatives_dir, "sub-"+loop_subID, "sub-"+loop_subID+"_longi_lesions.csv"))
     # append pbvc value
     loop_lesion["pbvc"] = parse_pbvc_from_html_fsl(os.path.join(derivatives_dir, "sub-"+loop_subID, f"sub-{loop_subID}_PBVC-report.html"))
+    loop_lesion["sub-ID"] = loop_subID
     # write stats in the final dataframe
     df_lesions = pd.concat([df_lesions, loop_lesion])
 
