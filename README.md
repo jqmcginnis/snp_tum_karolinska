@@ -1,4 +1,5 @@
-## Repository for using SAMSEG longitudinal lesion segmentation on a large cohort, to sync settings with collaborators
+## Repository for using Freesurfer, SAMSEG in cross-sectional and longitudinal lesion segmentation settings, on large cohorts.
+Used to sync settings with collaborators.
 
 ### Requirements
 
