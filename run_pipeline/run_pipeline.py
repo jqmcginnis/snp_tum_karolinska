@@ -7,7 +7,8 @@ from utils import getSessionID, getSubjectID, MoveandCheck, split_list
 from samseg_stats import generate_samseg_stats
 import nibabel as nib
 
-def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_voxelsize=False, remove_temp=False, debug=False):
+def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_voxelsize=False, 
+                   remove_temp=False, debug=False):
 
     for dir in dirs:
 
@@ -50,8 +51,10 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                 t1w_conv = []
                 flair_conv = []
 
-                t1wbs_path = os.path.join(temp_dir,f'sub-{getSubjectID(t1w[0])}_ses-{getSessionID(t1w[0])}_T2w_res{t1w_spacing[0]}x{t1w_spacing[1]}x{t1w_spacing[2]}.nii.gz')
-                flairbs_path = os.path.join(temp_dir, f'sub-{getSubjectID(flair[0])}_ses-{getSessionID(flair[0])}_FLAIR_res{flair_spacing[0]}x{flair_spacing[1]}x{flair_spacing[2]}.nii.gz')
+                t1wbs_path = os.path.join(temp_dir,f'sub-{getSubjectID(t1w[0])}_ses-{getSessionID(t1w[0])}_'
+                                          'T2w_res{t1w_spacing[0]}x{t1w_spacing[1]}x{t1w_spacing[2]}.nii.gz')
+                flairbs_path = os.path.join(temp_dir, f'sub-{getSubjectID(flair[0])}_ses-{getSessionID(flair[0])}_'
+                                            'FLAIR_res{flair_spacing[0]}x{flair_spacing[1]}x{flair_spacing[2]}.nii.gz')
 
                 # copy the T1w / Flair images to the directory
 
@@ -63,8 +66,10 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
 
                 # convert remaining files if zooms are different, otherwise copy only
                 for i in range(1, len(t1w)):
-                    t1wbs_path = os.path.join(temp_dir,f'sub-{getSubjectID(t1w[i])}_ses-{getSessionID(t1w[i])}_T2w_res-{t1w_spacing[0]}x{t1w_spacing[1]}x{t1w_spacing[2]}.nii.gz')
-                    flairbs_path = os.path.join(temp_dir, f'sub-{getSubjectID(flair[i])}_ses-{getSessionID(flair[i])}_FLAIR_res-{flair_spacing[0]}x{flair_spacing[1]}x{flair_spacing[2]}.nii.gz')
+                    t1wbs_path = os.path.join(temp_dir,f'sub-{getSubjectID(t1w[i])}_ses-{getSessionID(t1w[i])}_'
+                                              'T2w_res-{t1w_spacing[0]}x{t1w_spacing[1]}x{t1w_spacing[2]}.nii.gz')
+                    flairbs_path = os.path.join(temp_dir, f'sub-{getSubjectID(flair[i])}_ses-{getSessionID(flair[i])}_'
+                                                'FLAIR_res-{flair_spacing[0]}x{flair_spacing[1]}x{flair_spacing[2]}.nii.gz')
 
                     if t1w_spacing != nib.load(t1w[i]).header.get_zooms():
                         os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
@@ -156,7 +161,8 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                 tempdir_sienna = os.path.join(temp_dir, f'_{i}')
                 # copy the SIENA PBVC html report
                 pbvc_temp_location = os.path.join(tempdir_sienna, "report.html")
-                pbvc_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_PBVC-report_{i}.html')
+                pbvc_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' 
+                                                    + '_PBVC-report_{i}.html')
                 MoveandCheck(pbvc_temp_location, pbvc_target_location)
 
             # only continue if more than one timepoint was segmented
