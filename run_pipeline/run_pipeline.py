@@ -136,11 +136,17 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                         ')
             
             ### run FSL-SIENA to calculate PBVC
-            os.system(f'FSLDIR={fsl_path};\
-                        . ${{FSLDIR}}/etc/fslconf/fsl.sh;\
-                        PATH=${{FSLDIR}}/bin:${{PATH}};\
-                        export FSLDIR PATH;\
-                        {fsl_path}/bin/siena {Path(t1w[0])} {Path(t1w[1])} -o {temp_dir} -B "-f 0.2 -B"')
+
+            for i in range(len(t1w)-1):
+                # create new temp file
+                tempdir_sienna = os.path.join(temp_dir, f'_{i}')
+                Path(tempdir_sienna).mkdir(parents=True, exist_ok=True)                    
+
+                os.system(f'FSLDIR={fsl_path};\
+                            . ${{FSLDIR}}/etc/fslconf/fsl.sh;\
+                            PATH=${{FSLDIR}}/bin:${{PATH}};\
+                            export FSLDIR PATH;\
+                            {fsl_path}/bin/siena {Path(t1w[i])} {Path(t1w[i+1])} -o {tempdir_sienna} -B "-f 0.2 -B"')
 
             ### copy output files from temp folder to their session folders
             # write paths of output folders of the timepoint (tp) in a list
@@ -150,10 +156,14 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             mean_temp_location = os.path.join(temp_dir, "mean.mgz")
             mean_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_mean.mgz')
             MoveandCheck(mean_temp_location, mean_target_location)
-            # copy the SIENA PBVC html report
-            pbvc_temp_location = os.path.join(temp_dir, "report.html")
-            pbvc_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_PBVC-report.html')
-            MoveandCheck(pbvc_temp_location, pbvc_target_location)
+            
+            for i in range(len(t1w)-1):
+                # create new temp file
+                tempdir_sienna = os.path.join(temp_dir, f'_{i}')
+                # copy the SIENA PBVC html report
+                pbvc_temp_location = os.path.join(tempdir_sienna, "report.html")
+                pbvc_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_PBVC-report_{i}.html')
+                MoveandCheck(pbvc_temp_location, pbvc_target_location)
 
             # only continue if more than one timepoint was segmented
             # aggregate the samseg output files and move to appropriate directories
