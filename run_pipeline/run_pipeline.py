@@ -7,7 +7,7 @@ from utils import getSessionID, getSubjectID, MoveandCheck, split_list
 from samseg_stats import generate_samseg_stats
 import nibabel as nib
 
-def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_voxelsize=False, remove_temp=False, verbose=False):
+def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_voxelsize=False, remove_temp=False, debug=False):
 
     for dir in dirs:
 
@@ -18,29 +18,31 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
         t1w = [str(x) for x in t1w]
         flair = [str(x) for x in flair]
 
-        if verbose:
+        if debug:
             print(t1w)
             print(flair)
 
+        # use try / except to continue to process other subjects in the queue
         try:
 
             if (len(t1w) != len(flair)) or (len(t1w) <= 1) or (len(flair) <= 1):
                 # instead of using assert we use this mechanism due to parallel processing
                 # assert len(t1w) == len(flair), 'Mismatch T1w/FLAIR number'
                 # we do not check for file corresondance as lists are sorted anyway
-                print(f"Fatal Error for {dir}")
+                print(f"Fatal Error for {dir}.")
                 break
 
 
             # create template folder
             temp_dir = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}', 'temp')
-            print(temp_dir)
             temp_dir_output = os.path.join(temp_dir, "output")
-            print(temp_dir_output)
             Path(temp_dir_output).mkdir(parents=True, exist_ok=True)
 
-            # convert all to the same spacing
-            # use baseline spacing as default
+            print(temp_dir)
+            print(temp_dir_output)
+
+            # convert all scans to the same spacing if this flag is passed via cmd
+            # use baseline spacing as default spacing!
             if convert_voxelsize:
                 t1w_spacing = nib.load(t1w[0]).header.get_zooms()
                 flair_spacing = nib.load(flair[0]).header.get_zooms()
@@ -59,31 +61,27 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                 t1w_conv.append(t1wbs_path)
                 flair_conv.append(flairbs_path)
 
-                # convert remaining files, otherwise copy
+                # convert remaining files if zooms are different, otherwise copy only
                 for i in range(1, len(t1w)):
-                    t1wbs_path = os.path.join(temp_dir,f'sub-{getSubjectID(t1w[i])}_ses-{getSessionID(t1w[i])}_T2w_res{t1w_spacing[0]}x{t1w_spacing[1]}x{t1w_spacing[2]}.nii.gz')
-                    flairbs_path = os.path.join(temp_dir, f'sub-{getSubjectID(flair[i])}_ses-{getSessionID(flair[i])}_FLAIR_res{flair_spacing[0]}x{flair_spacing[1]}x{flair_spacing[2]}.nii.gz')
+                    t1wbs_path = os.path.join(temp_dir,f'sub-{getSubjectID(t1w[i])}_ses-{getSessionID(t1w[i])}_T2w_res-{t1w_spacing[0]}x{t1w_spacing[1]}x{t1w_spacing[2]}.nii.gz')
+                    flairbs_path = os.path.join(temp_dir, f'sub-{getSubjectID(flair[i])}_ses-{getSessionID(flair[i])}_FLAIR_res-{flair_spacing[0]}x{flair_spacing[1]}x{flair_spacing[2]}.nii.gz')
 
                     if t1w_spacing != nib.load(t1w[i]).header.get_zooms():
-
-                        ### run SAMSEG longitudinal segmentation 
                         os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                                     mri_convert {t1w[i]} -voxsize {t1w_spacing[0]} {t1w_spacing[1]} {t1w_spacing[2]} {t1wbs_path}; \
                                     ')
                     else:
-                        # copy the file with that resolution!
+                        # copy the file with existing resolution!
                         shutil.copy(t1w[i], t1wbs_path)
 
                     t1w_conv.append(t1wbs_path)
  
                     if flair_spacing != nib.load(flair[i]).header.get_zooms():
-
-                        ### run SAMSEG longitudinal segmentation 
                         os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                                     mri_convert {flair[i]} -voxsize {flair_spacing[0]} {flair_spacing[1]} {flair_spacing[2]} {flairbs_path}; \
                                     ')
                     else:
-                        # copy the file with that resolution!
+                        # copy the file with existing resolution!
                         shutil.copy(flair[i], flairbs_path)    
                     
                     flair_conv.append(flairbs_path)     
@@ -92,13 +90,10 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                 t1w = t1w_conv
                 flair = flair_conv  
 
-
             # pre-define paths of registered images 
             t1w_reg = [str(Path(x).name).replace("T1w.nii.gz", "space-common_T1w.mgz") for x in t1w]
             flair_reg_field = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.lta") for x in flair]
             flair_reg = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.mgz") for x in flair]
-            # call SAMSEG 
-            print(getSubjectID(t1w[0]))
             os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                         cd {temp_dir}; \
                         mri_robust_template --mov {" ".join(map(str, t1w))} --template mean.mgz --satit --mapmov {" ".join(map(str, t1w_reg))};\
@@ -136,7 +131,6 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                         ')
             
             ### run FSL-SIENA to calculate PBVC
-
             for i in range(len(t1w)-1):
                 # create new temp file
                 tempdir_sienna = os.path.join(temp_dir, f'_{i}')
@@ -221,7 +215,6 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                     print(f'successfully deleted the template folder: {temp_dir}')
     
             # generate the actual samseg volumetric stats
-
             filename = f'sub-{getSubjectID(t1w[0])}_ses-{getSessionID(t1w[0])}_seg.mgz'
             bl_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}', f'ses-{getSessionID(t1w[0])}', 'anat', filename)
             filename = f'sub-{getSubjectID(t1w[1])}_ses-{getSessionID(t1w[1])}_seg.mgz'
