@@ -5,8 +5,9 @@ from pathlib import Path
 import multiprocessing
 from utils import getSessionID, getSubjectID, MoveandCheck, split_list
 from samseg_stats import generate_samseg_stats
+import nibabel as nib
 
-def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, remove_temp=False):
+def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_voxelsize=False, remove_temp=False, verbose=False):
 
     for dir in dirs:
 
@@ -17,6 +18,10 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, remove_temp
         t1w = [str(x) for x in t1w]
         flair = [str(x) for x in flair]
 
+        if verbose:
+            print(t1w)
+            print(flair)
+
         try:
 
             if (len(t1w) != len(flair)) or (len(t1w) <= 1) or (len(flair) <= 1):
@@ -26,15 +31,68 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, remove_temp
                 print(f"Fatal Error for {dir}")
                 break
 
-            ### perform registartion with both T1w images
-            # do the registration in a template folder and distribute its results to BIDS conform output directories later
+
             # create template folder
-            #print(t1w)
             temp_dir = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}', 'temp')
             print(temp_dir)
             temp_dir_output = os.path.join(temp_dir, "output")
             print(temp_dir_output)
             Path(temp_dir_output).mkdir(parents=True, exist_ok=True)
+
+            # convert all to the same spacing
+            # use baseline spacing as default
+            if convert_voxelsize:
+                t1w_spacing = nib.load(t1w[0]).header.get_zooms()
+                flair_spacing = nib.load(flair[0]).header.get_zooms()
+
+                t1w_conv = []
+                flair_conv = []
+
+                t1wbs_path = os.path.join(temp_dir,f'sub-{getSubjectID(t1w[0])}_ses-{getSessionID(t1w[0])}_T2w_res{t1w_spacing[0]}x{t1w_spacing[1]}x{t1w_spacing[2]}.nii.gz')
+                flairbs_path = os.path.join(temp_dir, f'sub-{getSubjectID(flair[0])}_ses-{getSessionID(flair[0])}_FLAIR_res{flair_spacing[0]}x{flair_spacing[1]}x{flair_spacing[2]}.nii.gz')
+
+                # copy the T1w / Flair images to the directory
+
+                shutil.copy(t1w[0], t1wbs_path)
+                shutil.copy(flair[0], flairbs_path)
+
+                t1w_conv.append(t1wbs_path)
+                flair_conv.append(flairbs_path)
+
+                # convert remaining files, otherwise copy
+                for i in range(1, len(t1w)):
+                    t1wbs_path = os.path.join(temp_dir,f'sub-{getSubjectID(t1w[i])}_ses-{getSessionID(t1w[i])}_T2w_res{t1w_spacing[0]}x{t1w_spacing[1]}x{t1w_spacing[2]}.nii.gz')
+                    flairbs_path = os.path.join(temp_dir, f'sub-{getSubjectID(flair[i])}_ses-{getSessionID(flair[i])}_FLAIR_res{flair_spacing[0]}x{flair_spacing[1]}x{flair_spacing[2]}.nii.gz')
+
+                    if t1w_spacing != nib.load(t1w[i]).header.get_zooms():
+
+                        ### run SAMSEG longitudinal segmentation 
+                        os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
+                                    mri_convert {t1w[i]} -voxsize {t1w_spacing[0]} {t1w_spacing[1]} {t1w_spacing[2]} {t1wbs_path}; \
+                                    ')
+                    else:
+                        # copy the file with that resolution!
+                        shutil.copy(t1w[i], t1wbs_path)
+
+                    t1w_conv.append(t1wbs_path)
+ 
+                    if flair_spacing != nib.load(flair[i]).header.get_zooms():
+
+                        ### run SAMSEG longitudinal segmentation 
+                        os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
+                                    mri_convert {flair[i]} -voxsize {flair_spacing[0]} {flair_spacing[1]} {flair_spacing[2]} {flairbs_path}; \
+                                    ')
+                    else:
+                        # copy the file with that resolution!
+                        shutil.copy(flair[i], flairbs_path)    
+                    
+                    flair_conv.append(flairbs_path)     
+
+                # use paths of the converted scans instead of the original ones!
+                t1w = t1w_conv
+                flair = flair_conv  
+
+
             # pre-define paths of registered images 
             t1w_reg = [str(Path(x).name).replace("T1w.nii.gz", "space-common_T1w.mgz") for x in t1w]
             flair_reg_field = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.lta") for x in flair]
@@ -170,6 +228,7 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--number_of_workers', help='Number of parallel processing cores.', type=int, default=os.cpu_count()-1)
     parser.add_argument('-f', '--freesurfer_path', help='Path to freesurfer binaries.', default='/home/jmcginnis/freesurfer')
     parser.add_argument('-fsl', '--fsl_path', help='Path to FSL binaries.', default='/home/jmcginnis/fsl')
+    parser.add_argument('--convert_voxelsize', help="Converts resolution to baseline scan resolution.", action='store_true')
     parser.add_argument('--remove_temp', action='store_true')
 
     # read the arguments
@@ -179,6 +238,11 @@ if __name__ == "__main__":
         remove_temp = True
     else:
         remove_temp = False
+
+    if args.convert_voxelsize:
+        convert_voxelsize = True
+    else:
+        convert_voxelsize = False
 
     # generate derivatives/labels/
     derivatives_dir = os.path.join(args.input_directory, "derivatives/samseg-longitudinal-7.3.2")
@@ -194,7 +258,7 @@ if __name__ == "__main__":
     pool = multiprocessing.Pool(processes=args.number_of_workers)
     # creation, initialisation and launch of the different processes
     for x in range(0, args.number_of_workers):
-        pool.apply_async(process_samseg, args=(files[x], derivatives_dir, args.freesurfer_path, args.fsl_path, remove_temp))
+        pool.apply_async(process_samseg, args=(files[x], derivatives_dir, args.freesurfer_path, args.fsl_path, convert_voxelsize, remove_temp))
 
     pool.close()
     pool.join()
