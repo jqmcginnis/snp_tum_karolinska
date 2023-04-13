@@ -13,11 +13,8 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                    remove_temp=False, debug=False):
 
     for dir in dirs:
-
-        ### assemble T1w and FLAIR file lists
         t1w = sorted(list(Path(dir).rglob('*T1w*')))
         flair = sorted(list(Path(dir).rglob('*FLAIR*')))
-
         t1w = [str(x) for x in t1w]
         flair = [str(x) for x in flair]
 
@@ -26,6 +23,8 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             print(flair)
 
         # use try / except to continue to process other subjects in the queue
+        # in case current subject fails! This error will be silent, but can be identified
+        # by missing putput files.
         try:
 
             if (len(t1w) != len(flair)) or (len(t1w) <= 1) or (len(flair) <= 1):
@@ -47,13 +46,12 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
 
             # convert all scans to the same spacing if this flag is passed via cmd
             # use baseline spacing as default spacing!
+
             if convert_voxelsize:
                 t1w_spacing = nib.load(t1w[0]).header.get_zooms()
                 flair_spacing = nib.load(flair[0]).header.get_zooms()
-
                 t1w_conv = []
                 flair_conv = []
-
                 t1wbs_path = os.path.join(temp_dir, str(f'sub-{getSubjectID(t1w[0])}_ses-{getSessionID(t1w[0])}_'
                                           f'T2w_res-{t1w_spacing[0]}x{t1w_spacing[1]}x{t1w_spacing[2]}').replace(".","") + ".nii.gz")
                 flairbs_path = os.path.join(temp_dir,str( f'sub-{getSubjectID(flair[0])}_ses-{getSessionID(flair[0])}_'
@@ -62,7 +60,6 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                 if debug:
                     print(t1wbs_path)
                     print(flairbs_path)
-
                     print(t1w[0])
                     print(flair[0])
 
@@ -82,11 +79,12 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                     flairbs_path = os.path.join(temp_dir, str(f'sub-{getSubjectID(flair[i])}_ses-{getSessionID(flair[i])}_'
                                                 f'FLAIR_res-{flair_spacing[0]}x{flair_spacing[1]}x{flair_spacing[2]}').replace(".","") + ".nii.gz")
                     
-                                    
-                    print(t1wbs_path)
-                    print(flairbs_path)
+                    if debug:             
+                        print(t1wbs_path)
+                        print(flairbs_path)
 
-                    if np.abs(np.sum(t1w_spacing) - np.sum(nib.load(t1w[i]).header.get_zooms())) > 0.1:
+                    # allow some small diff in spacing
+                    if np.abs(np.sum(t1w_spacing) - np.sum(nib.load(t1w[i]).header.get_zooms())) > 0.1: 
                         print(colored('Convert voxelspacing','green'))
                         print(colored(f"Baseline Spacing: {t1w_spacing}", "green"))
                         print(colored(f"Image Spacing: {nib.load(t1w[i]).header.get_zooms()}", "green"))
@@ -100,6 +98,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
 
                     t1w_conv.append(t1wbs_path)
  
+                    # allow some small diff in spacing
                     if np.abs(np.sum(flair_spacing) - np.sum(nib.load(flair[i]).header.get_zooms())) > 0.1:
                         print(colored('Convert voxelspacing','green'))
                         print(colored(f"Baseline Spacing: {flair_spacing}", "green"))
@@ -117,15 +116,13 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
 
                 # use paths of the converted scans instead of the original ones!
                 t1w = t1w_conv
-                flair = flair_conv  
-
-
+                flair = flair_conv 
 
             # pre-define paths of registered images 
             t1w_reg = [str(Path(x).name).replace("T1w.nii.gz", "space-common_T1w.mgz") for x in t1w]
             flair_reg_field = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.lta") for x in flair]
             flair_reg = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.mgz") for x in flair]
-            print(f'export FREESURFER_HOME={freesurfer_path} ; \
+            os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                         cd {temp_dir}; \
                         mri_robust_template --mov {" ".join(map(str, t1w))} --template mean.mgz --satit --mapmov {" ".join(map(str, t1w_reg))};\
                         ')        
@@ -134,16 +131,16 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             ### co-register flairs to their corresponding registered T1w images
             # initialize an empty list fo timepoint argument for samseg that will be used later
             cmd_arg = []
-            # iterate over all timepoints and call SAMSEG
+
             for i in range(len(flair)):
                 # get transformation
-                print(f'export FREESURFER_HOME={freesurfer_path} ; \
+                os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                             cd {temp_dir}; \
                             mri_coreg --mov {flair[i]} --ref {t1w_reg[i]} --reg {flair_reg_field[i]};\
                             ')
 
                 # apply transformation
-                print(f'export FREESURFER_HOME={freesurfer_path} ; \
+                os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                             cd {temp_dir}; \
                             mri_vol2vol --mov {flair[i]} --reg {flair_reg_field[i]} --o {flair_reg[i]} --targ {t1w_reg[i]};\
                             ')
@@ -157,7 +154,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
 
             
             ### run SAMSEG longitudinal segmentation 
-            print(f'export FREESURFER_HOME={freesurfer_path} ; \
+            os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                         cd {temp_dir}; \
                         run_samseg_long {" ".join(map(str, cmd_arg))} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o output/\
                         ')
@@ -169,34 +166,34 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                 tempdir_sienna = os.path.join(temp_dir, f'_{i}')
                 Path(tempdir_sienna).mkdir(parents=True, exist_ok=True)                    
 
-                print(f'FSLDIR={fsl_path};\
+                os.system(f'FSLDIR={fsl_path};\
                             . ${{FSLDIR}}/etc/fslconf/fsl.sh;\
                             PATH=${{FSLDIR}}/bin:${{PATH}};\
                             export FSLDIR PATH;\
                             {fsl_path}/bin/siena {Path(t1w[i])} {Path(t1w[i+1])} -o {tempdir_sienna} -B "-f 0.2 -B"')
                 
 
-            ### copy output files from temp folder to their session folders
-            # write paths of output folders of the timepoint (tp) in a list
+            ### move output files from temp folder to their session folders
             tp_folder = sorted(list(str(x) for x in os.listdir(temp_dir_output) if "tp" in str(x)))
 
-            # copy the mean image file and pbvc files
+            # move the mean image file and pbvc files
             mean_temp_location = os.path.join(temp_dir, "mean.mgz")
             mean_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_mean.mgz')
-            # MoveandCheck(mean_temp_location, mean_target_location)
+            MoveandCheck(mean_temp_location, mean_target_location)
 
-            
             for i in range(len(t1w)-1):
                 print(colored('Move PBVC files.','green'))
                 # create new temp file
                 tempdir_sienna = os.path.join(temp_dir, f'diff_{i}')
                 # copy the SIENA PBVC html report
                 pbvc_temp_location = os.path.join(tempdir_sienna, "report.html")
-                print(pbvc_temp_location)
+
                 pbvc_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' 
                                                     + f'_PBVC-report_{i}.html')
-                print(pbvc_target_location)
-                # MoveandCheck(pbvc_temp_location, pbvc_target_location)           
+                if debug:
+                    print(pbvc_target_location)
+                    print(pbvc_temp_location)
+                MoveandCheck(pbvc_temp_location, pbvc_target_location)           
             
             # only continue if more than one timepoint was segmented
             # aggregate the samseg output files and move to appropriate directories
@@ -231,29 +228,24 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                     flair_reg_ses_location = os.path.join(deriv_ses, flair_reg[i])
                     flair_reg_field_ses_location = os.path.join(deriv_ses, flair_reg_field[i])
                     
-                    # copy files from template output folder to target output folder (one output folder per session)
+                    # move files from template output folder to target output folder (one output folder per session)
                     # each time there is a check if the file in the temp folder exists and if it  was copied successfully
-                    # T1w
                     MoveandCheck(t1w_reg_temp_location, t1w_reg_ses_location)
-                    # FLAIR
                     MoveandCheck(flair_reg_temp_location, flair_reg_ses_location)
-                    # FLAIR transformation file
                     MoveandCheck(flair_reg_field_temp_location, flair_reg_field_ses_location)
-                    # copy output files to target folder
+                    # move output files to target folder
                     for i in range(len(tp_files_temp_path)):
                         MoveandCheck(tp_files_temp_path[i], tp_files_ses_path[i])
             else:
                 print(f'Skipping longitudinal data copies.')
-
-            
+           
 
             if remove_temp:
-                # delete the temp folder
                 shutil.rmtree(temp_dir)
                 if os.path.exists(temp_dir):
-                    raise ValueError(f'failed to delete the template folder: {temp_dir}')
+                    raise ValueError(f'failed to delete the template folder: {temp_dir}.')
                 else:
-                    print(f'successfully deleted the template folder: {temp_dir}')
+                    print(f'successfully deleted the template folder: {temp_dir}.')
  
             
             # generate the actual samseg volumetric stats

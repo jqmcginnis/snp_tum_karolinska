@@ -7,7 +7,6 @@ import sys
 import re
 from scipy import ndimage as ndi
 from skimage.morphology import binary_dilation
-
 from utils import getSubjectID
 
 # developed by stefano cerri (martinos), adapted to satndalone function by jmcginnis (TUM)

@@ -54,7 +54,7 @@ def MoveandCheck(orig, target):
         if not os.path.exists(target):
             raise ValueError(f'failed to move {orig}')
         else:
-            print(f'successfully copied {os.path.basename(orig)} to {os.path.basename(target)} target location')
+            print(f'successfully moved {os.path.basename(orig)} to {os.path.basename(target)} target location')
     else:
         raise Warning(f'file {os.path.basename(orig)} does not exist in original folder!')
 
