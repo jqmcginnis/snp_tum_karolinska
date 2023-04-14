@@ -163,7 +163,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             ### run FSL-SIENA to calculate PBVC
             for i in range(len(t1w)-1):
                 # create new temp file
-                tempdir_sienna = os.path.join(temp_dir, f'_{i}')
+                tempdir_sienna = os.path.join(temp_dir, f'diff_{i}')
                 Path(tempdir_sienna).mkdir(parents=True, exist_ok=True)                    
 
                 os.system(f'FSLDIR={fsl_path};\
@@ -257,6 +257,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                 output_dir = os.path.join(derivatives_dir, f'diff_{i}')
                 Path(output_dir).mkdir(parents=True, exist_ok=True)
                 output_path = os.path.join(output_dir, f'sub-{getSubjectID(t1w[i])}')
+                Path(output_path).mkdir(parents=True, exist_ok=True)
                 generate_samseg_stats(bl_path=bl_path, fu_path=fu_path, output_path=output_path) 
 
             print("DONE!")
