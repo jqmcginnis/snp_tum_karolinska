@@ -89,7 +89,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                         print(colored(f"Baseline Spacing: {t1w_spacing}", "green"))
                         print(colored(f"Image Spacing: {nib.load(t1w[i]).header.get_zooms()}", "green"))
                         os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                                    mri_convert {t1w[i]} -voxsize {t1w_spacing[0]} {t1w_spacing[1]} {t1w_spacing[2]} {t1wbs_path}; \
+                                    mri_convert -vs {t1w_spacing[0]} {t1w_spacing[1]} {t1w_spacing[2]} -it nii -ot nii {t1w[i]} {t1wbs_path}; \
                                     ')
                     else:
                         # copy the file with existing resolution!
@@ -105,7 +105,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                         print(colored(f"Image Spacing: {nib.load(flair[i]).header.get_zooms()}", "green"))
 
                         os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                                    mri_convert {flair[i]} -voxsize {flair_spacing[0]} {flair_spacing[1]} {flair_spacing[2]} {flairbs_path}; \
+                                    mri_convert -voxsize {flair_spacing[0]} {flair_spacing[1]} {flair_spacing[2]} -it nii -ot nii {flair[i]} {flairbs_path}; \
                                     ')
                     else:
                         # copy the file with existing resolution!
