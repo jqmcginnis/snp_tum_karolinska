@@ -144,8 +144,10 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             flair_reg = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.mgz") for x in flair]
     
             os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
+                        cd {temp_dir}; \
                         mri_robust_template --mov {" ".join(map(str, t1w))} --template mean.mgz --satit --mapmov {" ".join(map(str, t1w_reg))};\
-                        ')     
+                        ')        
+            
 
             ### co-register flairs to their corresponding registered T1w images
             # initialize an empty list fo timepoint argument for samseg that will be used later
@@ -154,11 +156,13 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             for i in range(len(flair)):
                 # get transformation
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
+                            cd {temp_dir}; \
                             mri_coreg --mov {flair[i]} --ref {t1w_reg[i]} --reg {flair_reg_field[i]};\
                             ')
 
                 # apply transformation
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
+                            cd {temp_dir}; \
                             mri_vol2vol --mov {flair[i]} --reg {flair_reg_field[i]} --o {flair_reg[i]} --targ {t1w_reg[i]};\
                             ')
 
@@ -172,6 +176,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             
             ### run SAMSEG longitudinal segmentation 
             os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
+                        cd {temp_dir}; \
                         run_samseg_long {" ".join(map(str, cmd_arg))} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o output/\
                         ')
             
