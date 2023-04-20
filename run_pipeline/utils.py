@@ -26,10 +26,10 @@ def getSessionID(path):
     :return: return the BIDS-compliant session ID
     """
     stringList = str(path).split("/")
-    indices = [i for i, s in enumerate(stringList) if '_ses-' in s]
+    indices = [i for i, s in enumerate(stringList) if 'ses-' in s]
     text = stringList[indices[0]]
     try:
-        found = re.search(r'ses-(\d{8})', text).group(1)
+        found = re.search(r'ses-([a-zA-Z0-9]+)', text).group(1)
     except AttributeError:
         found = ''
     return found
@@ -42,21 +42,22 @@ def split_list(alist, splits=1):
 
 
 # path helpers
-def MoveandCheck(orig, target):
+def MoveandCheck(src, dest):
     '''
-    This function tries to move a file with current path "orig" to a target path "target" and 
-    checks if the orig file exists and if it was copied successfully to target
-    :param orig: full path of original location (with (original) filename in the path)
-    :param target: full path of target location (with (new) filename in the path)
+    This function tries to move a file with current path "src" to a dest path "dest" and 
+    checks if the src file exists and if it was copied successfully to dest
+    :param src: full path of srcinal location (with (srcinal) filename in the path)
+    :param dest: full path of dest location (with (new) filename in the path)
     '''
-    if os.path.exists(orig):
-        shutil.move(orig, target)
-        if not os.path.exists(target):
-            raise ValueError(f'failed to move {orig}')
+    if os.path.exists(src):
+        print(f"Move {src} to {dest}")
+        shutil.move(src, dest)
+        if not os.path.exists(dest):
+            raise ValueError(f'failed to move {src}')
         else:
-            print(f'successfully moved {os.path.basename(orig)} to {os.path.basename(target)} target location')
+            print(f'successfully moved {os.path.basename(src)} to {os.path.basename(dest)} dest location')
     else:
-        raise Warning(f'file {os.path.basename(orig)} does not exist in original folder!')
+        raise Warning(f'file {os.path.basename(src)} does not exist in src folder!')
 
 
 def getSegList(path):

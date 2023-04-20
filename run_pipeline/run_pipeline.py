@@ -117,6 +117,8 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
 
             else:
 
+                print(colored('No resolution conversion applied.','green'))
+
                 for i in range(1, len(t1w)):
 
                     subject_dir = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'ses-{getSessionID(t1w[i])}', 'anat') 
@@ -155,12 +157,14 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
 
             for i in range(len(flair)):
                 # get transformation
+                print(colored('Coregistration using mri_coreg.','green'))
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                             cd {temp_dir}; \
                             mri_coreg --mov {flair[i]} --ref {t1w_reg[i]} --reg {flair_reg_field[i]};\
                             ')
 
                 # apply transformation
+                print(colored('Vol2Vol using vol2vol.','green'))
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                             cd {temp_dir}; \
                             mri_vol2vol --mov {flair[i]} --reg {flair_reg_field[i]} --o {flair_reg[i]} --targ {t1w_reg[i]};\
@@ -175,6 +179,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
 
             
             ### run SAMSEG longitudinal segmentation 
+            print(colored('SAMSEG Longitudinal scans.','green'))
             os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                         cd {temp_dir}; \
                         run_samseg_long {" ".join(map(str, cmd_arg))} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o output/\
@@ -185,7 +190,8 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             for i in range(len(t1w)-1):
                 # create new temp file
                 tempdir_sienna = os.path.join(temp_dir, f'diff_{i}')
-                Path(tempdir_sienna).mkdir(parents=True, exist_ok=True)                    
+                Path(tempdir_sienna).mkdir(parents=True, exist_ok=True)    
+                print(colored('FSL SIENA.','green'))                
 
                 os.system(f'FSLDIR={fsl_path};\
                             . ${{FSLDIR}}/etc/fslconf/fsl.sh;\
@@ -198,8 +204,10 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             tp_folder = sorted(list(str(x) for x in os.listdir(temp_dir_output) if "tp" in str(x)))
 
             # move the mean image file and pbvc files
+            print(colored('Moving Mean Atlas.','green'))
             mean_temp_location = os.path.join(temp_dir, "mean.mgz")
             mean_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_mean.mgz')
+            
             MoveandCheck(mean_temp_location, mean_target_location)
 
             for i in range(len(t1w)-1):
@@ -215,11 +223,13 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                     print(pbvc_target_location)
                     print(pbvc_temp_location)
                     
-                MoveandCheck(pbvc_temp_location, pbvc_target_location)           
+                MoveandCheck(pbvc_temp_location, pbvc_target_location)  
+                     
             
             # only continue if more than one timepoint was segmented
             # aggregate the samseg output files and move to appropriate directories
             if len(tp_folder) > 1:
+                print(colored('Moving SAMSEG output.','green'))
 
                 # iterate through all the timepoints 
                 for i in range(len(tp_folder)):
@@ -261,28 +271,36 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             else:
                 print(f'Skipping longitudinal data copies.')
            
-
+            
             if remove_temp:
+                print(colored('Removing temp dir.','green'))
                 shutil.rmtree(temp_dir)
                 if os.path.exists(temp_dir):
                     raise ValueError(f'failed to delete the template folder: {temp_dir}.')
                 else:
                     print(f'successfully deleted the template folder: {temp_dir}.')
+            
  
             
             # generate the actual samseg volumetric stats
             for i in range(len(tp_folder)-1):
+                print(colored('Calculate SAMSEG Diff.','green'))
                 filename = f'sub-{getSubjectID(t1w[i])}_ses-{getSessionID(t1w[i])}_seg.mgz'
                 bl_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'ses-{getSessionID(t1w[i])}', 'anat', filename)
                 filename = f'sub-{getSubjectID(t1w[i+1])}_ses-{getSessionID(t1w[i+1])}_seg.mgz'
                 fu_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i+1])}', f'ses-{getSessionID(t1w[i+1])}', 'anat', filename)
-                output_dir = os.path.join(derivatives_dir, f'diff_{i}')
-                Path(output_dir).mkdir(parents=True, exist_ok=True)
-                output_path = os.path.join(output_dir, f'sub-{getSubjectID(t1w[i])}')
+                output_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'diff_{i}')
                 Path(output_path).mkdir(parents=True, exist_ok=True)
-                generate_samseg_stats(bl_path=bl_path, fu_path=fu_path, output_path=output_path) 
+                
+                print(bl_path)
+                print(fu_path)
+                print(output_path)
+                try:
+                    generate_samseg_stats(bl_path=bl_path, fu_path=fu_path, output_path=output_path) 
+                except:
+                    print("Failed to generate samseg stats!")
 
-            print("DONE!")
+            print(colored('Finished processing pipeline.','green'))
         except:
             print("Error occured during processing, proceeding with next subject.")
             
