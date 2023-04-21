@@ -24,6 +24,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
         # use try / except to continue to process other subjects in the queue
         # in case current subject fails! This error will be silent, but can be identified
         # by missing putput files.
+
         try:
 
             if (len(t1w) != len(flair)) or (len(t1w) <= 1) or (len(flair) <= 1):
@@ -50,12 +51,6 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                 flairbs_path = os.path.join(subject_dir, str( f'sub-{getSubjectID(flair[0])}_ses-{getSessionID(flair[0])}_'
                                             f'res-common_FLAIR').replace(".","") + ".nii.gz")
                 
-                if debug:
-                    print(t1wbs_path)
-                    print(flairbs_path)
-                    print(t1w[0])
-                    print(flair[0])
-
                 # copy the T1w / Flair baseline images to the directory
                 shutil.copy(t1w[0], t1wbs_path)
                 shutil.copy(flair[0], flairbs_path)
@@ -74,10 +69,6 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                     flairbs_path = os.path.join(subject_dir, str(f'sub-{getSubjectID(flair[i])}_ses-{getSessionID(flair[i])}_'
                                                 f'res-common_FLAIR').replace(".","") + ".nii.gz")
                     
-                    if debug:             
-                        print(t1wbs_path)
-                        print(flairbs_path)
-
                     # allow some small diff in spacing
                     if np.abs(np.sum(t1w_spacing) - np.sum(nib.load(t1w[i]).header.get_zooms())) > 0.1: 
                         print(colored('Convert voxelspacing','green'))
@@ -119,26 +110,32 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
 
                 print(colored('No resolution conversion applied.','green'))
 
-                for i in range(1, len(t1w)):
+                t1w_copied = []
+                flair_copied = []
+
+                for i in range(0, len(t1w)):
 
                     subject_dir = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'ses-{getSessionID(t1w[i])}', 'anat') 
                     Path(subject_dir).mkdir(parents=True, exist_ok=True)
 
                     t1wbs_path = os.path.join(subject_dir, str(f'sub-{getSubjectID(t1w[i])}_ses-{getSessionID(t1w[i])}_'
-                                              f'res-common_T1w').replace(".","") + ".nii.gz")
+                                              f'T1w').replace(".","") + ".nii.gz")
                     flairbs_path = os.path.join(subject_dir, str(f'sub-{getSubjectID(flair[i])}_ses-{getSessionID(flair[i])}_'
-                                                f'res-common_FLAIR').replace(".","") + ".nii.gz")
+                                                f'FLAIR').replace(".","") + ".nii.gz")
                     shutil.copy(t1w[i], t1wbs_path)
                     shutil.copy(flair[i], flairbs_path)
+
+                    t1w_copied.append(t1wbs_path)
+                    flair_copied.append(flairbs_path)
+                
+                # use paths of the converted scans instead of the original ones!
+                t1w = t1w_copied
+                flair = flair_copied 
 
             # create temp folder
             temp_dir = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}', 'temp')
             temp_dir_output = os.path.join(temp_dir, "output")
             Path(temp_dir_output).mkdir(parents=True, exist_ok=True)
-
-            if debug:
-                print(temp_dir)
-                print(temp_dir_output)
 
             # pre-define paths of registered images 
             t1w_reg = [str(Path(x).name).replace("T1w.nii.gz", "space-common_T1w.mgz") for x in t1w]
@@ -164,7 +161,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                             ')
 
                 # apply transformation
-                print(colored('Vol2Vol using vol2vol.','green'))
+                print(colored('Resampling using vol2vol.','green'))
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                             cd {temp_dir}; \
                             mri_vol2vol --mov {flair[i]} --reg {flair_reg_field[i]} --o {flair_reg[i]} --targ {t1w_reg[i]};\
