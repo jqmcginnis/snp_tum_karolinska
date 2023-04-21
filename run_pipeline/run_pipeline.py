@@ -189,7 +189,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             ### run FSL-SIENA to calculate PBVC
             for i in range(len(t1w)-1):
                 # create new temp file
-                tempdir_sienna = os.path.join(temp_dir, f'diff_{i}')
+                tempdir_sienna = os.path.join(temp_dir, f'diff_{i}{i+1}')
                 Path(tempdir_sienna).mkdir(parents=True, exist_ok=True)    
                 print(colored('FSL SIENA.','green'))                
 
@@ -213,7 +213,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
             for i in range(len(t1w)-1):
                 print(colored('Move PBVC files.','green'))
                 # create new temp file
-                tempdir_sienna = os.path.join(temp_dir, f'diff_{i}')
+                tempdir_sienna = os.path.join(temp_dir, f'diff_{i}{i+1}')
                 # copy the SIENA PBVC html report
                 pbvc_temp_location = os.path.join(tempdir_sienna, "report.html")
 
@@ -289,7 +289,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, fsl_path, convert_vox
                 bl_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'ses-{getSessionID(t1w[i])}', 'anat', filename)
                 filename = f'sub-{getSubjectID(t1w[i+1])}_ses-{getSessionID(t1w[i+1])}_seg.mgz'
                 fu_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i+1])}', f'ses-{getSessionID(t1w[i+1])}', 'anat', filename)
-                output_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'diff_{i}')
+                output_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'diff_{i}{i+1}')
                 Path(output_path).mkdir(parents=True, exist_ok=True)
                 
                 print(bl_path)
