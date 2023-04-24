@@ -15,6 +15,7 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                                   convert_resolution=False, 
                                   remove_temp=False, 
                                   debug=False):
+    
 
     # loop through different subjects
     for dir in dirs:
@@ -116,6 +117,8 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
 
                 print(colored('No resolution conversion applied.','green'))
 
+                print("Current working directory:", os.getcwd())
+
                 t1w_copied = []
                 flair_copied = []
 
@@ -139,22 +142,23 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                 t1w = t1w_copied
                 flair = flair_copied 
 
-            # create temp folder
+            derivatives_subject_dir = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}')
+            Path(derivatives_subject_dir).mkdir(parents=True, exist_ok=True)
+
             temp_dir = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}', 'temp')
             temp_dir_output = os.path.join(temp_dir, "output")
             Path(temp_dir_output).mkdir(parents=True, exist_ok=True)
 
             # pre-define paths of registered images 
-            t1w_reg = [str(Path(x).name).replace("T1w.nii.gz", "space-common_T1w.mgz") for x in t1w]
-            flair_reg_field = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.lta") for x in flair]
-            flair_reg = [str(Path(x).name).replace("FLAIR.nii.gz", "space-common_FLAIR.mgz") for x in flair]
-    
+            t1w_reg = [str(Path(x)).replace("T1w.nii.gz", "space-common_T1w.mgz") for x in t1w]
+            flair_reg_field = [str(Path(x)).replace("FLAIR.nii.gz", "space-common_FLAIR.lta") for x in flair]
+            flair_reg = [str(Path(x)).replace("FLAIR.nii.gz", "space-common_FLAIR.mgz") for x in flair]
+   
+            print(colored('Creating a robust template:','green'))
             os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                        cd {temp_dir}; \
-                        mri_robust_template --mov {" ".join(map(str, t1w))} --template mean.mgz --satit --mapmov {" ".join(map(str, t1w_reg))};\
-                        ')        
+                        mri_robust_template --mov {" ".join(map(str, t1w))} --template {os.path.join(derivatives_subject_dir,f"sub-{getSubjectID(t1w[0])}_desc-mean.mgz")} --satit --mapmov {" ".join(map(str, t1w_reg))};\
+                        ')
             
-
             ### co-register flairs to their corresponding registered T1w images
             # initialize an empty list fo timepoint argument for samseg that will be used later
             cmd_arg = []
@@ -162,15 +166,23 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
             for i in range(len(flair)):
                 # get transformation
                 print(colored('Coregistration using mri_coreg.','green'))
+                print(flair[i])
+                print(t1w_reg[i])
+                print(flair_reg_field[i])
+                #basedir = os.path.dirname(flair[i])
+                #print(basedir)
+
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                            cd {temp_dir}; \
                             mri_coreg --mov {flair[i]} --ref {t1w_reg[i]} --reg {flair_reg_field[i]};\
                             ')
-
+                
+               
                 # apply transformation
                 print(colored('Resampling using vol2vol.','green'))
+                print(flair[i])
+                print(flair_reg[i])
+                print(flair_reg_field[i])
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                            cd {temp_dir}; \
                             mri_vol2vol --mov {flair[i]} --reg {flair_reg_field[i]} --o {flair_reg[i]} --targ {t1w_reg[i]};\
                             ')
 
@@ -181,13 +193,15 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                 deriv_ses = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'ses-{getSessionID(t1w[i])}', 'anat')
                 Path(deriv_ses).mkdir(parents=True, exist_ok=True)
 
+
             
             ### run SAMSEG longitudinal segmentation 
             print(colored('SAMSEG Longitudinal scans.','green'))
             os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                        cd {temp_dir}; \
-                        run_samseg_long {" ".join(map(str, cmd_arg))} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o output/\
+                        run_samseg_long {" ".join(map(str, cmd_arg))} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o {temp_dir_output}\
                         ')
+            
+
             
             
             ### run FSL-SIENA to calculate PBVC for all sessions sequentially
@@ -216,6 +230,8 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                             PATH=${{FSLDIR}}/bin:${{PATH}};\
                             export FSLDIR PATH;\
                             {fsl_path}/bin/siena {Path(t1w[0])} {Path(t1w[-1])} -o {tempdir_sienna} -B "-f 0.2 -B"')
+                
+            break
                     
             ### move output files from temp folder to their session folders
             tp_folder = sorted(list(str(x) for x in os.listdir(temp_dir_output) if "tp" in str(x)))
