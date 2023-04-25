@@ -13,8 +13,7 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                                   freesurfer_path, 
                                   fsl_path, 
                                   convert_resolution=False, 
-                                  remove_temp=False, 
-                                  debug=False):
+                                  remove_temp=False):
     
 
     # loop through different subjects
@@ -340,6 +339,9 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                     generate_samseg_stats(bl_path=bl_path, fu_path=fu_path, output_path=output_path) 
                 except:
                     print("Failed to generate samseg stats!")
+
+            if remove_temp:
+                os.rmdir(temp_dir)
 
             print(colored('Finished processing pipeline.','green'))
         except:
