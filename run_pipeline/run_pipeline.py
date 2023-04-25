@@ -341,6 +341,7 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                     print("Failed to generate samseg stats!")
 
             if remove_temp:
+                print(colored('Removing temp directory.','green'))
                 os.rmdir(temp_dir)
 
             print(colored('Finished processing pipeline.','green'))
