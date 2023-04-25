@@ -7,7 +7,7 @@ import sys
 import re
 from scipy import ndimage as ndi
 from skimage.morphology import binary_dilation
-from utils import getSubjectID
+from utils import getSubjectID, getSessionID
 
 # developed by stefano cerri (martinos), adapted to satndalone function by jmcginnis (TUM)
 def generate_samseg_stats(bl_path, fu_path, output_path, min_size=15.0, connectivity=18, max_overlap=0.3, debug=False, save_images=True):
@@ -16,7 +16,9 @@ def generate_samseg_stats(bl_path, fu_path, output_path, min_size=15.0, connecti
     #'Maximum overlap between a dilated lesion and another existing lesion to classify it as new/disappearing (in percentage of its volume).')
 
     # get subject ID 
-    subID = f'sub-{getSubjectID(bl_path)}'
+    subID = getSubjectID(bl_path)
+    sesID_baseline = getSessionID(bl_path)
+    sesID_followup = getSessionID(fu_path)
 
     # Set-up connectivity matrix
     if connectivity == 26:
@@ -221,16 +223,19 @@ def generate_samseg_stats(bl_path, fu_path, output_path, min_size=15.0, connecti
 
     print("Effective number of followup lesions: " + str(thresholded_baseline_lesions + new_lesions - disappearing_lesions))
 
+ 
+
     # Save results to file
-    np.savez(os.path.join(output_path, subID+"_longi_lesions.npz"), bl_les=thresholded_baseline_lesions,
-                                                                    bl_vol_les=baseline_volume,
-                                                                    fu_les=thresholded_followup_lesions,
-                                                                    fu_les_eff=thresholded_baseline_lesions + new_lesions - disappearing_lesions,
-                                                                    fu_vol_les=followup_volume,
-                                                                    fu_min_bl_les=enlarging_lesions + new_lesions,
-                                                                    fu_min_bl_vol_les=fu_min_bl_volume,
-                                                                    bl_min_fu_les=disappearing_lesions + shrinking_lesions,
-                                                                    bl_min_fu_vol_les=bl_min_fu_volume)
+    np.savez(os.path.join(output_path, f'sub-{subID}_desc-{sesID_baseline}vs{sesID_followup}_lesions.npz'), 
+                                        bl_les=thresholded_baseline_lesions,
+                                        bl_vol_les=baseline_volume,
+                                        fu_les=thresholded_followup_lesions,
+                                        fu_les_eff=thresholded_baseline_lesions + new_lesions - disappearing_lesions,
+                                        fu_vol_les=followup_volume,
+                                        fu_min_bl_les=enlarging_lesions + new_lesions,
+                                        fu_min_bl_vol_les=fu_min_bl_volume,
+                                        bl_min_fu_les=disappearing_lesions + shrinking_lesions,
+                                        bl_min_fu_vol_les=bl_min_fu_volume)
     # Save results to csv file
     print("Printing results to .csv file.")
     lesion_df = pd.DataFrame()
@@ -244,7 +249,7 @@ def generate_samseg_stats(bl_path, fu_path, output_path, min_size=15.0, connecti
     lesion_df.loc[1,"fu_min_bl_vol_les"] = fu_min_bl_volume
     lesion_df.loc[1,"bl_min_fu_les"] = disappearing_lesions + shrinking_lesions
     lesion_df.loc[1,"bl_min_fu_vol_les"] = bl_min_fu_volume
-    lesion_df.to_csv(os.path.join(output_path, subID+"_longi_lesions.csv"), index=False)
+    lesion_df.to_csv(os.path.join(output_path, f'sub-{subID}_desc-{sesID_baseline}vs{sesID_followup}_lesions.csv'), index=False)
 
     if save_images:        
 
@@ -268,12 +273,12 @@ def generate_samseg_stats(bl_path, fu_path, output_path, min_size=15.0, connecti
 
         # Save images
         img = nib.Nifti1Image(lesions_baseline, baseline_affine)
-        nib.save(img, os.path.join(output_path, subID+"_bl_lesions.nii.gz"))
+        nib.save(img, os.path.join(output_path, f'sub-{subID}_desc-{sesID_baseline}vs{sesID_followup}_bllesions.nii.gz'))
         img = nib.Nifti1Image(lesions_followup, baseline_affine)
-        nib.save(img, os.path.join(output_path, subID+"_fu_lesions.nii.gz"))
+        nib.save(img, os.path.join(output_path,  f'sub-{subID}_desc-{sesID_baseline}vs{sesID_followup}_fulesions.nii.gz'))
         img = nib.Nifti1Image(lesions_fu_min_bl, baseline_affine)
-        nib.save(img, os.path.join(output_path, subID+"_fu-min-bl_lesions.nii.gz"))
+        nib.save(img, os.path.join(output_path, f'sub-{subID}_desc-{sesID_baseline}vs{sesID_followup}_fuminbllesions.nii.gz'))
         img = nib.Nifti1Image(lesions_bl_min_fu, baseline_affine)
-        nib.save(img, os.path.join(output_path, subID+"_bl-min-fu_lesions.nii.gz"))
+        nib.save(img, os.path.join(output_path, f'sub-{subID}_desc-{sesID_baseline}vs{sesID_followup}_blminbllesions.nii.gz'))
 
     print("Done!")

@@ -231,24 +231,17 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                             export FSLDIR PATH;\
                             {fsl_path}/bin/siena {Path(t1w[0])} {Path(t1w[-1])} -o {tempdir_sienna} -B "-f 0.2 -B"')
                 
-            break
                     
             ### move output files from temp folder to their session folders
             tp_folder = sorted(list(str(x) for x in os.listdir(temp_dir_output) if "tp" in str(x)))
 
-            # move the mean image file and pbvc files
-            print(colored('Moving Mean Atlas.','green'))
-            mean_temp_location = os.path.join(temp_dir, "mean.mgz")
-            mean_target_location = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', f'sub-{getSubjectID(t1w_reg[0])}' + '_mean.mgz')
-            MoveandCheck(mean_temp_location, mean_target_location)
-
+            # move pbvc files
             for i in range(len(t1w)-1):
                 print(colored('Move PBVC files.','green'))
                 tempdir_sienna = os.path.join(temp_dir, f'diff_{getSessionID(t1w[i])}vs{getSessionID(t1w[i+1])}')
                 pbvc_temp_location = os.path.join(tempdir_sienna, "report.html")
-                pbvc_target_directory = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', 
-                                                     f'diff_{getSessionID(t1w[i])}vs'
-                                                     f'{getSessionID(t1w[i+1])}')
+                pbvc_target_directory = os.path.join(derivatives_dir, 
+                                                    f'sub-{getSubjectID(t1w_reg[0])}')
                 Path(pbvc_target_directory).mkdir(parents=True, exist_ok=True)   
                 pbvc_target_location = os.path.join(pbvc_target_directory, 
                                                     f'sub-{getSubjectID(t1w_reg[0])}_'
@@ -258,22 +251,18 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
 
             # Move the baseline / last scan comparison!
             # check first, if the file already exists!
-            pbvc_target_directory = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', 
-                                                    f'diff_{getSessionID(t1w[0])}vs'
-                                                    f'{getSessionID(t1w[-1])}')
+            pbvc_target_directory = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}')
             pbvc_target_location = os.path.join(pbvc_target_directory, 
                                                 f'sub-{getSubjectID(t1w_reg[0])}_'
                                                 f'desc-{getSessionID(t1w[0])}vs'
                                                 f'{getSessionID(t1w[-1])}_PBVC.html')
+            
+            if not os.path.isfile(pbvc_target_location):
 
-            if not os.path.file(pbvc_target_location):
-
-                print(colored('Move PBVC files.','green'))
+                print(colored('Move final file.','green'))
                 tempdir_sienna = os.path.join(temp_dir, f'diff_{getSessionID(t1w[0])}vs{getSessionID(t1w[-1])}')
                 pbvc_temp_location = os.path.join(tempdir_sienna, "report.html")
-                pbvc_target_directory = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}', 
-                                                     f'diff_{getSessionID(t1w[0])}vs'
-                                                     f'{getSessionID(t1w[-1])}')
+                pbvc_target_directory = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w_reg[0])}')
                 Path(pbvc_target_directory).mkdir(parents=True, exist_ok=True)   
                 pbvc_target_location = os.path.join(pbvc_target_directory, 
                                                     f'sub-{getSubjectID(t1w_reg[0])}_'
@@ -281,7 +270,6 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                                                     f'{getSessionID(t1w[-1])}_PBVC.html')
                 MoveandCheck(pbvc_temp_location, pbvc_target_location)  
      
-            
             # only continue if more than one timepoint was segmented
             # aggregate the samseg output files and move to appropriate directories
             if len(tp_folder) > 1:
@@ -301,43 +289,26 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                     tp_files = os.listdir(tp_folder_path)
                     for filename in tp_files:
                         # rename to BIDS
-                        tp_files_bids = f'sub-{getSubjectID(t1w_reg[i])}' + '_' + f'ses-{getSessionID(t1w_reg[i])}' + '_' + filename
+                        tp_files_bids = f'sub-{getSubjectID(t1w_reg[i])}' + '_' + f'ses-{getSessionID(t1w_reg[i])}' + '_' + str(filename).replace("_","")
                         # list template and target paths
                         tp_files_temp_path.append(os.path.join(tp_folder_path, filename))
                         tp_files_ses_path.append(os.path.join(deriv_ses, tp_files_bids))
 
-                    # define location of files in template folder
-                    t1w_reg_temp_location = os.path.join(temp_dir, t1w_reg[i])
-                    flair_reg_temp_location = os.path.join(temp_dir, flair_reg[i])
-                    flair_reg_field_temp_location = os.path.join(temp_dir, flair_reg_field[i])
-
-                    # define location of files in target folder
-                    t1w_reg_ses_location = os.path.join(deriv_ses, t1w_reg[i])
-                    flair_reg_ses_location = os.path.join(deriv_ses, flair_reg[i])
-                    flair_reg_field_ses_location = os.path.join(deriv_ses, flair_reg_field[i])
-                    
-                    # move files from template output folder to target output folder (one output folder per session)
-                    # each time there is a check if the file in the temp folder exists and if it  was copied successfully
-                    MoveandCheck(t1w_reg_temp_location, t1w_reg_ses_location)
-                    MoveandCheck(flair_reg_temp_location, flair_reg_ses_location)
-                    MoveandCheck(flair_reg_field_temp_location, flair_reg_field_ses_location)
                     # move output files to target folder
                     for i in range(len(tp_files_temp_path)):
                         MoveandCheck(tp_files_temp_path[i], tp_files_ses_path[i])
             else:
-                print(f'Skipping longitudinal data copies.')
+                print(f'SAMSEG Longitudinal has failed.')
+                break
             
             # generate the actual samseg volumetric stats
             for i in range(len(tp_folder)-1):
-                print(colored('Calculate SAMSEG Diff.','green'))
+                print(colored('Calculate SAMSEG Comparison.','green'))
                 filename = f'sub-{getSubjectID(t1w[i])}_ses-{getSessionID(t1w[i])}_seg.mgz'
                 bl_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}', f'ses-{getSessionID(t1w[i])}', 'anat', filename)
                 filename = f'sub-{getSubjectID(t1w[i+1])}_ses-{getSessionID(t1w[i+1])}_seg.mgz'
                 fu_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i+1])}', f'ses-{getSessionID(t1w[i+1])}', 'anat', filename)
-                output_path = os.path.join(derivatives_dir, 
-                                            f'sub-{getSubjectID(t1w[i])}', 
-                                            f'diff_{getSessionID(t1w[i])}vs'
-                                            f'{getSessionID(t1w[i+1])}')
+                output_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[i])}')
                 Path(output_path).mkdir(parents=True, exist_ok=True)
                 
                 print(bl_path)
@@ -351,20 +322,15 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
             # check if lesion output file exists
             samseg_file = os.path.join(derivatives_dir, 
                                         f'sub-{getSubjectID(t1w[0])}', 
-                                        f'diff_{getSessionID(t1w[0])}vs'
-                                        f'{getSessionID(t1w[-1])}',
-                                        f'{getSubjectID(t1w[0])}_longi_lesions.csv'
+                                        f'{getSubjectID(t1w[0])}_desc-{getSessionID(t1w[0])}vs{getSessionID(t1w[-1])}_lesions.csv'
                                         )
-            if not os.file.exists(samseg_file):
+            if not os.path.isfile(samseg_file):
                 print(colored('Calculate SAMSEG Diff.','green'))
                 filename = f'sub-{getSubjectID(t1w[0])}_ses-{getSessionID(t1w[0])}_seg.mgz'
                 bl_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}', f'ses-{getSessionID(t1w[0])}', 'anat', filename)
                 filename = f'sub-{getSubjectID(t1w[-1])}_ses-{getSessionID(t1w[-1])}_seg.mgz'
                 fu_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[-1])}', f'ses-{getSessionID(t1w[-1])}', 'anat', filename)
-                output_path = os.path.join(derivatives_dir, 
-                                            f'sub-{getSubjectID(t1w[0])}', 
-                                            f'diff_{getSessionID(t1w[0])}vs'
-                                            f'{getSessionID(t1w[-1])}')
+                output_path = os.path.join(derivatives_dir, f'sub-{getSubjectID(t1w[0])}')
                 Path(output_path).mkdir(parents=True, exist_ok=True)
                 
                 print(bl_path)
