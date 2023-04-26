@@ -342,7 +342,10 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
 
             if remove_temp:
                 print(colored('Removing temp directory.','green'))
-                os.rmdir(temp_dir)
+                try:
+                    shutil.rmtree(temp_dir)
+                except:
+                    print(f"Cannot remove {temp_dir}.")
 
             print(colored('Finished processing pipeline.','green'))
         except:
