@@ -200,9 +200,6 @@ def process_longitudinal_pipeline(dirs, derivatives_dir,
                         run_samseg_long {" ".join(map(str, cmd_arg))} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o {temp_dir_output}\
                         ')
             
-
-            
-            
             ### run FSL-SIENA to calculate PBVC for all sessions sequentially
             for i in range(len(t1w)-1):
                 # create temp directory
