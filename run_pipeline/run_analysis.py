@@ -79,7 +79,7 @@ for i in range(len(seg_list)):
 df_vol1 = pd.DataFrame(columns = df_stat.columns)
 df_vol2 = pd.DataFrame(columns = df_stat.columns)
 df_lesions = pd.DataFrame()
-# get all sub-IDs that ar ein the volume_stats file
+# get all sub-IDs that are in the volume_stats file
 sub_ls = []
 [sub_ls.append(x) for x in list(df_stat["sub-ID"]) if x not in sub_ls]
 
@@ -112,13 +112,15 @@ df_stat_flat = pd.merge(df_vol1, df_vol2, how = 'inner', on = 'sub-ID')
 #df_stat_flat.to_csv(os.path.join(args.output_directory, "volume_stats_flat.csv"), index=False)
 
 ## longitudinal lesion data
-# rename columns
-df_lesions.columns = loop_lesion.columns
-#write lesion data to csv file 
+# write lesion data to csv file 
 # df_lesions.to_csv(os.path.join(args.output_directory, "lesion_stats.csv"), index=False)
 
 ## combine volume and longitudinal lesion data
 # merge volume and lesion data
+print('df_stat_flat: ')
+print(df_stat_flat)
+print('df_lesions: ')
+print(df_lesions)
 df_vol_lesion = pd.merge(df_stat_flat, df_lesions, how = 'inner', on = 'sub-ID')
 # write merged data to csv file
 df_vol_lesion.to_csv(os.path.join(args.output_directory, "volume_lesion_stats.csv"), index=False)
